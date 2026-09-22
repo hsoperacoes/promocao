@@ -22,7 +22,7 @@
 <script>
 const API_URL='https://script.google.com/macros/s/AKfycbyu4WrW945rJlJ9dAu8vhyJAFsdPZchU-eCNB5ZVe5nCODEw1kb3G_vTWPX9UCooF51sw/exec';
 const DB_NAME='hs_promocao_v1',DB_STORE='cache';
-const S={token:localStorage.getItem('hs_promo_token')||'',user:null,data:null,page:'inicio',catalogo:{},bi:{},precos:{},pending:null,scanner:null,scannerLocked:false};
+const S={token:localStorage.getItem('hs_promo_token')||'',user:null,data:null,page:'inicio',catalogo:{},bi:{},precos:{},pending:null,scanner:null,scannerLocked:false,baseSyncPromise:null};
 const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
 function load(v=true){$('#loading').classList.toggle('hidden',!v)} function toast(t){let e=$('#toast');e.textContent=t;e.classList.remove('hidden');setTimeout(()=>e.classList.add('hidden'),3000)}
 async function apiLong(api,p={}){
@@ -70,23 +70,27 @@ function navItems(){return S.user.perfil==='ADMIN'?[['inicio','Início'],['anali
 function renderNav(){let h=navItems().map(([p,n])=>`<button data-p="${p}" onclick="go('${p}')">${n}</button>`).join('')+`<button onclick="logout()">Sair</button>`;$('#nav').innerHTML=h;$('#mobileNav').innerHTML=h}
 function head(t,s=''){return `<div class="top"><div><h1>${esc(t)}</h1>${s?`<div class="muted">${esc(s)}</div>`:''}</div><span class="chip">${esc(S.user.perfil==='ADMIN'?'Léo • Admin':S.user.filialNome)}</span></div>`}
 function go(p){S.page=p;document.querySelectorAll('[data-p]').forEach(b=>b.classList.toggle('active',b.dataset.p===p));({inicio:renderInicio,coleta:renderColeta,lista:renderLista,analise:renderAnalise,filiais:renderFiliais,usuarios:renderUsuarios}[p]||renderInicio)();scrollTo(0,0)}
-async function syncBases(){try{
-  const ver=await api('versoesBases');
-  const tipos=['catalogo','bi','precos'];
-  const faltando=[];
-  for(const tipo of tipos){
-    const local=await cacheGet('base_'+tipo);
-    if(local&&local.versao===ver[tipo])S[tipo]=local.dados;
-    else faltando.push(tipo);
-  }
-  if(!faltando.length)return true;
-  const snap=await apiLong('snapshotBases',{tipos:faltando});
-  for(const tipo of faltando){
-    const local={versao:snap.versoes[tipo],dados:snap.bases[tipo]||{}};
-    await cacheSet('base_'+tipo,local);S[tipo]=local.dados;
-  }
-  return true;
-}catch(e){toast('Não foi possível atualizar as bases: '+e.message);return false}}
+async function syncBases(){
+  if(S.baseSyncPromise)return S.baseSyncPromise;
+  S.baseSyncPromise=(async()=>{try{
+    const ver=await api('versoesBases');
+    const tipos=['catalogo','bi','precos'],faltando=[];
+    for(const tipo of tipos){
+      const local=await cacheGet('base_'+tipo);
+      if(local&&local.versao===ver[tipo])S[tipo]=local.dados;
+      else faltando.push(tipo);
+    }
+    if(!faltando.length)return true;
+    const snap=await apiLong('snapshotBases',{tipos:faltando});
+    for(const tipo of faltando){
+      const local={versao:snap.versoes[tipo],dados:snap.bases[tipo]||{}};
+      await cacheSet('base_'+tipo,local);S[tipo]=local.dados;
+    }
+    return true;
+  }catch(e){toast('Não foi possível atualizar as bases: '+e.message);return false}
+  finally{S.baseSyncPromise=null}})();
+  return S.baseSyncPromise;
+}
 function renderInicio(){if(S.user.perfil==='ADMIN'){const fs=S.data.filiais||[],ativas=fs.filter(x=>x.status==='EM_COLETA').length,aguard=fs.filter(x=>x.status==='AGUARDANDO_ANALISE').length;$('#main').innerHTML=head('Painel de Promoções','Controle das filiais e análises.')+`<div class="cards"><div class="card metric"><span>FILIAIS EM COLETA</span><strong>${ativas}</strong></div><div class="card metric"><span>AGUARDANDO ANÁLISE</span><strong>${aguard}</strong></div><div class="card metric"><span>FILIAIS</span><strong>${fs.length}</strong></div></div><div class="sectionTitle"><h2>Filiais</h2></div>${filiaisCards(fs)}`;return}const p=S.data.promocao;$('#main').innerHTML=head('Promoção — '+S.user.filialNome,'Bipe e confirme os itens que irão para análise.')+`<div class="cards"><div class="card metric"><span>STATUS</span><strong style="font-size:18px">${esc(p?.status||'FECHADA')}</strong></div><div class="card metric"><span>ITENS NA LISTA</span><strong>${S.data.itens?.length||0}</strong></div><div class="card metric"><span>BASE LOCAL</span><strong style="font-size:18px">${Object.keys(S.catalogo).length?'PRONTA':'CARREGANDO'}</strong></div></div><button class="btn primary full" style="margin-top:15px" onclick="go('coleta')">Bipar peças</button>`}
 function filiaisCards(fs){return `<div class="cards">${fs.map(f=>`<div class="card"><b>${esc(f.nome)}</b><p><span class="badge ${f.status==='EM_COLETA'?'green':f.status==='AGUARDANDO_ANALISE'?'amber':'red'}">${esc(f.status)}</span></p><div class="rowActions">${f.status==='FECHADA'||f.status==='FINALIZADA'?`<button class="btn good" onclick="iniciarPromo('${f.codigo}')">Iniciar promoção</button>`:''}${f.status==='EM_COLETA'?`<button class="btn danger" onclick="fecharPromo('${f.codigo}')">Bloquear coleta</button>`:''}${f.status==='AGUARDANDO_ANALISE'?`<button class="btn primary" onclick="abrirAnalise('${f.codigo}')">Analisar</button>`:''}</div></div>`).join('')}</div>`}
 async function renderColeta(){if(S.user.perfil==='ADMIN')return go('inicio');if(!Object.keys(S.catalogo).length){$('#main').innerHTML=head('Bipar peças','Preparando a base local...')+`<div class="card"><b>Carregando catálogo local</b><p class="muted">Na primeira carga pode levar alguns segundos. Depois fica salvo neste aparelho.</p></div>`;const ok=await syncBases();if(!ok||!Object.keys(S.catalogo).length)return; if(S.page!=='coleta')return;}$('#main').innerHTML=head('Bipar peças','Leitura por câmera ou inclusão manual.')+`<div class="scanGrid"><div class="card"><h3>Adicionar peça</h3><button class="btn good full" onclick="openScanner()">📷 Escanear EAN</button><div class="field"><label>Inclusão manual</label><div class="manual"><input id="manualEAN" class="input" inputmode="numeric" maxlength="20" placeholder="Digite ou cole o EAN"><button class="btn primary" onclick="manualEAN()">Adicionar</button></div></div><div id="candidate"></div></div><div class="card"><h3>Lista atual</h3><div id="quickList"></div></div></div>`;$('#manualEAN').onkeydown=e=>{if(e.key==='Enter')manualEAN()};renderQuick()}
@@ -94,10 +98,37 @@ function normalize(v){return String(v??'').trim().toUpperCase()}
 function biKey(ref,cor,tam){return [normalize(S.user.filialCodigo),normalize(ref),normalize(cor),normalize(tam)].join('|')}
 function processEAN(raw){const ean=(String(raw).match(/\d{13}/)||[])[0];if(!ean)return toast('EAN inválido. Informe 13 dígitos.');const c=S.catalogo[ean];if(!c)return toast('EAN não encontrado no catálogo.');const b=S.bi[biKey(c.ref,c.cor,c.tam)]||{};const preco=S.precos[normalize(c.ref)];S.pending={ean,...c,estoque:Number(b.estoque||0),piramide:b.piramide||'',dataUltima:b.dataUltima||'',preco:Number(preco||0)};renderCandidate();return true}
 function renderCandidate(){const x=S.pending;if(!x)return;$('#candidate').innerHTML=`<div class="productCard"><div class="productCode">${esc(x.ref)} · ${esc(x.cor)} · ${esc(x.tam)}</div><div class="muted">EAN ${esc(x.ean)}</div><div class="facts"><div class="fact"><small>Estoque</small><b>${x.estoque}</b></div><div class="fact"><small>Preço atual</small><b>${money(x.preco)}</b></div><div class="fact"><small>Pirâmide</small><b>${esc(x.piramide||'-')}</b></div></div><div class="rowActions"><button class="btn good" onclick="confirmItem()">Confirmar item</button><button class="btn" onclick="S.pending=null;$('#candidate').innerHTML=''">Cancelar</button></div></div>`}
-async function confirmItem(){if(!S.pending)return;try{load();const j=await api('adicionarItem',{item:S.pending});S.data.itens=j.itens;S.pending=null;renderColeta();toast('Item adicionado.')}catch(e){toast(e.message)}finally{load(false)}}
+async function confirmItem(){
+  if(!S.pending)return;
+  const item={...S.pending};
+  const tempId='LOCAL_'+Date.now()+'_'+Math.random().toString(36).slice(2);
+  const optimistic={...item,id:tempId};
+  S.data.itens=S.data.itens||[];
+
+  const exists=S.data.itens.some(i=>normalize(i.ref)===normalize(item.ref)&&normalize(i.cor)===normalize(item.cor)&&normalize(i.tam)===normalize(item.tam));
+  if(exists){toast('Este item já está na lista.');S.pending=null;renderColeta();return}
+
+  S.data.itens.push(optimistic);
+  S.pending=null;
+  renderColeta();
+  toast('Item incluído.');
+
+  try{
+    const j=await apiLong('adicionarItem',{item});
+    if(j.itens)S.data.itens=j.itens;
+    if(S.page==='coleta')renderQuick();
+    if(S.page==='lista')renderLista();
+  }catch(e){
+    S.data.itens=(S.data.itens||[]).filter(i=>i.id!==tempId);
+    if(S.page==='coleta')renderQuick();
+    if(S.page==='lista')renderLista();
+    toast('Não foi possível gravar o item. Tente novamente.');
+  }
+}
 function manualEAN(){const i=$('#manualEAN');if(processEAN(i.value)){i.value='';i.focus()}}
 function renderQuick(){const e=$('#quickList');if(!e)return;const a=S.data.itens||[];e.innerHTML=a.length?a.slice().reverse().slice(0,15).map(x=>`<div style="padding:9px 0;border-bottom:1px solid #e6ebef"><b>${esc(x.ref)} · ${esc(x.cor)} · ${esc(x.tam)}</b><br><span class="muted">Estoque ${x.estoque} • ${money(x.preco)}</span></div>`).join(''):`<div class="empty">Nenhum item adicionado.</div>`}
-function renderLista(){const a=S.data.itens||[];$('#main').innerHTML=head('Minha lista','Revise antes de enviar ao Léo.')+itemsTable(a,true)+(a.length?`<button class="btn primary full" style="margin-top:14px" onclick="enviarAnalise()">Enviar lista para análise</button>`:'')}
+function renderLista(){const a=S.data.itens||[];$('#main').innerHTML=head('Minha lista','Revise antes de enviar ao Léo.')+itemsTable(a,true)+(a.length?`<button class="btn primary full" style="margin-top:14px" onclick="enviarAnalise()">Enviar lista para análise</button>`:'');refreshListaSilenciosa()}
+async function refreshListaSilenciosa(){try{const j=await apiLong('listarItens');if(j.itens){const antes=JSON.stringify(S.data.itens||[]),depois=JSON.stringify(j.itens);S.data.itens=j.itens;if(S.page==='lista'&&antes!==depois){const a=S.data.itens||[];$('#main').innerHTML=head('Minha lista','Revise antes de enviar ao Léo.')+itemsTable(a,true)+(a.length?`<button class="btn primary full" style="margin-top:14px" onclick="enviarAnalise()">Enviar lista para análise</button>`:'')}}}catch(e){}}
 function itemsTable(a,edit=false){return `<div class="tableWrap"><table class="table"><thead><tr><th>Produto</th><th>Estoque</th><th>Preço atual</th><th>Pirâmide</th><th>Data última</th>${edit?'<th>Ação</th>':''}</tr></thead><tbody>${a.length?a.map(x=>`<tr><td><b>${esc(x.ref)} · ${esc(x.cor)} · ${esc(x.tam)}</b><br><span class="muted">${esc(x.ean||'')}</span></td><td>${x.estoque}</td><td>${money(x.preco)}</td><td>${esc(x.piramide||'-')}</td><td>${esc(x.dataUltima||'-')}</td>${edit?`<td><button class="btn danger" onclick="removerItem('${esc(x.id)}')">Remover</button></td>`:''}</tr>`).join(''):`<tr><td colspan="6" class="empty">Nenhum item.</td></tr>`}</tbody></table></div>`}
 async function removerItem(id){try{load();const j=await api('removerItem',{id});S.data.itens=j.itens;renderLista()}catch(e){toast(e.message)}finally{load(false)}}
 async function enviarAnalise(){if(!confirm('Enviar a lista para análise do Léo?'))return;try{load();await api('enviarAnalise');await refresh();go('inicio');toast('Lista enviada para análise.')}catch(e){toast(e.message)}finally{load(false)}}
