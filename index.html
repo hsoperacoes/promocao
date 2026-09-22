@@ -1,3 +1,102 @@
+ontem 22:13
+quando to clicando em incluir esta demorando demais, sendo que jáp esta tudo carregador, era pra ser instantaneo, sem falar que aparece que item já esta na lista, e quando clico nna minha lista ela aprece vazia
+vamos alterar algumas coisas HS SHOPPING UBERLANDIA   é a moda - cod dela é 761 ,HERING A OLIMPIO D MORAIS   isso é divina cod filial 1849,HERING AV G VARGAS ITAUNA   1848, HS  UBERLANDIA   488, RUA ARTUR MACHADO  293, RUA RIO DE JANEIRO - PCA  287,SHOPPING CENTER UBERABA  288, esses sao os cod, uma coisa que esta acotnecnedo tbm é no csv, aonde é a filial deveria vir o cod da filial e não o nome por algum motivo não esta carregando o estoque da peça lá no relatorio , uma coisa mt imporante é na hra de gerar desconto lá no painel do léo, eu esqueci de algum mt importante, todos os itens que são de promocação termina com 98, ou seja se por algum motivo um item valor dele for 200,00, ai se o leo jogar 50% ao inves de ficar 100,00, deverá ficar 100,98, isso vale para qlq valor, se for por exemplo 97,43, terá que ser 97,98, se for 29,91, devera mudar para 29,98, e assim vai , outra coisa eu acho que deveriamos ter um historico de promocoes na aba de leonardo do que já fizemos lá, 
+essa versao do index que vc me mandou não teve alteração nenhuma, verifica por favor 
+esse ultimo ali no banco de dados era quando a legenda estava errada e 288 tava dando que era a moda, agora o ponto lá no painel do léo não apare e para eu abrir uma promocao, e não aparece nada em analise de nenhuma filial no painel do leo 
+bom vamos lá, na aba de leonardo eu quero que apareça algumas coisas lá para ele visualizar antes de gerar o arquivo csv, essas coisas não precisam aparecer no relatorio csv , supondo que eu coloque um item lá, eu quero que o sistema busque e a apareça para o leo quando foi a ultima venda desse item e qual filial por exemplo a gerente colocou item x e vendeu em 01/01/25, porém teve uma filial que vendeu ele digamos 10/09/26, eu quero que apareça a filial e a data da venda, tbm quero que apareça por qual valor esse item foi vendido naquela filial, outra coisa ali no print o mes esta vindo antes do dia, euq uero que vc altere isso e deixe no index o dia antes do mes , outra coisa quando eu coloco a quantidade de desconto e clico em aplicar nada acontece com os itens, sem falar que tem uma demora niso, sendo que era pra ser imediato, acho que por enquanto é isso
+
+Sim. Pelo que já vimos desse projeto, o gargalo principal não é o tamanho do HTML; é que estamos usando o Google Sheets/Apps Script como banco operacional e, em algumas telas, trazendo bases grandes demais para o navegador.
+
+Eu mudaria a arquitetura sem mexer no funcionamento que já está pronto. O melhor caminho é este:
+
+Cache local no navegador (IndexedDB). Catálogo EAN, preços e relatório BI não deveriam ser baixados novamente a cada login/tela. No primeiro acesso, carregamos e salvamos localmente. Depois o sistema abre usando o banco local quase instantaneamente.
+Controle de versão das bases. Em vez de perguntar ao Apps Script “me mande 30 mil/100 mil registros”, o INDEX pergunta somente algo como versaoBI = 20260922_1030. Se a versão local for igual, não baixa nada. Se mudou, aí atualiza a base.
+Carregamento em segundo plano. O Léo entra e o painel abre imediatamente com o cache existente. Enquanto ele usa o sistema, verificamos silenciosamente se existe atualização. Não precisamos deixar a pessoa olhando para “Carregando banco...”.
+Não carregar o BI inteiro para ações pontuais. Por exemplo, para abrir a promoção da MODA, o servidor não deveria reconstruir todo o relatório BI. A base consolidada poderia já possuir algo como REF|COR|TAM → estoque por filial + última venda da rede + filial + valor. Assim a consulta vira praticamente uma leitura direta.
+Cache também no Apps Script. Hoje algumas funções provavelmente abrem planilha, fazem getDataRange(), percorrem milhares de linhas e montam tudo novamente. Podemos manter uma base processada/cacheada. Isso é especialmente importante para o relatório BI.
+Separar "dados pesados" de "dados em tempo real". Promoções, itens selecionados, status e descontos são pequenos e precisam estar atualizados. Catálogo EAN, BI e tabela de preços são grandes e mudam com menor frequência. Não faz sentido tratar os dois grupos da mesma maneira.
+
+No nosso caso eu faria uma arquitetura assim:
+
+Ao entrar no sistema:
+INDEX → IndexedDB → abre imediatamente
+
+Depois, silenciosamente:
+
+INDEX → pergunta versões ao GS → versão igual? não faz nada
+
+Se houver atualização:
+
+GS → manda somente a base alterada → IndexedDB é atualizado
+
+E para ações como Aplicar desconto, Incluir item, Remover item etc., a tela muda primeiro localmente e o salvamento acontece em segundo plano. Isso dá aquela sensação que você espera: clicou → aconteceu.
+
+O ponto que pode dar o maior ganho
+
+Eu criaria no GS uma espécie de BASE_PROMO_CACHE já processada. Em vez de o sistema precisar consultar e processar o relatório BI bruto toda vez, teríamos algo conceitualmente assim:
+
+REF + COR + TAM	Estoque 293	Estoque 287	...	Última venda	Filial	Valor	Pirâmide
+K48R|1HSI|M	2	0	...	10/09/2026	FLORIANO	199,99	Essencial
+
+O processamento pesado acontece uma vez quando atualizamos essa base. Depois, centenas de consultas ficam leves.
+
+Eu não trocaria de banco agora para Supabase/Firebase só por causa disso. Dá para melhorar bastante mantendo Google Sheets + Apps Script. Se depois o volume crescer muito, aí sim faria sentido migrar a camada operacional.
+
+Para este projeto eu atacaria primeiro IndexedDB + versionamento + cache processado do BI. É provavelmente onde vamos conseguir a maior redução de espera sem desmontar o que já construímos.
+
+hoje 19:07
+otimas resalvas trabalha nisso e já me entrega entao os arquivos já com essas alterações, e algumas coisas que tem que ser alteradas, o login esta vindo com uma senha pre estabelecida por algum motivo, se eu atualizo a pagina com f5 e estiver logada o site faz o logof do site , quando alguem esta indo para fazer a bipagem da promocao ta aparecendo informação que não deve aparecer pra ele, falando que depois que baixar vai ficar salvo, isso não [e necessario para o usuario, apenas um loading já é o suficiente , no relatorio que vai criando ali quando é incluido ref tem algumas ref que tem 0 a esquerda, o site esta sumindo com esse 0, e ele tem que ser visivel , aonde é minha lista para o usuario ta aparecemdo ali data da ultima, deveria ser data da ultima venda, outra coisa quando ele envia a lista, o site não redireciona ele para digamos a home, e a msg fica no canto a direita bem simples, acho que apos o envio, ele poderia ter digamos o acesso até que o leo gere o csv, que fique o acesso para o usuario porem sem ele fazer novas inserçoes, e não gostei daquele status aparecendo ali daquela forma com _ , acho que após enviar deve aparecer que esta em analise, e aquele negocio de base ali tbm não acho necessario aparecer para o usaurio , ai quando a pessoa tentar clicar em bipar se já tiver enviado uma lista, deve aparecer que ele já tem uma lista de promoção em analise e diga para ele aguarda a conclusão da mesma, fora isso temos que mudar tbm o login das filiais, hoje esta como o cod da filial e a senha hs, a senha vc pode permanecer o leo consegue mudar dps pelo painel, isso ta ok, mas o login eu quero o nome da filial, moda, ponto, artur e por ai vai ,na parte de analise aonde deveria aparecer o preço da ultima venda da rede não esta retornando o valor para lá outra coisa que eu não sei se vc barrou, supondo que o leo alterou um preço manual de alguma coisa, ai ele vai e depois joga % em cima da piramide, aquele preço que ele alterou manualmente não deve ser alterado, supondo tinha um item de 100 ele colocou 20%, ai depois ele jogou na piramide e esse item faz parte dessa piramide, esse item não deve ser alterado , outra coisa que deve ter tbm, já que estamos puxando a venda da peça de outra filial e tal eu quero que venha o estoque tbm , para fazer uma analise mais criteriosa, outra coisa, da um jeito de que fique visivel por exemplo quando se tratar da filial que estamos fazendo a analise e outra cor dos dados da filial da ultima venda do item, deu pra entender as modificações?
+
+Sim. Deu para entender todas as modificações, e já trabalhei também na parte de desempenho que tínhamos acabado de discutir.
+
+Nesta V11, alterei INDEX e GS juntos.
+
+Principais mudanças: o cache do aparelho agora é carregado antes de consultar atualização no servidor, então quem já possui catálogo/BI/preços no IndexedDB não precisa ficar esperando essas bases para começar a usar. O GS também passou a guardar a base processada em cache por partes, inclusive quando o BI é grande demais para um único item do CacheService.
+
+Também corrigi o fluxo da filial: F5 mantém a sessão; após enviar a lista, a gerente continua logada em modo de consulta, aparece “Em análise” sem _, some a informação de “BASE LOCAL”, e tentar entrar em Bipar peças avisa que a promoção já está em análise. A tela de carregamento das bases agora mostra apenas Carregando..., sem explicações técnicas.
+
+No login, os usuários padrão passam a ser artur, floriano, jota, moda, ponto, divina e itauna, mantendo a senha hs. Se o Léo já personalizou o usuário de alguma filial pelo painel, o GS preserva essa alteração. Também desativei o preenchimento automático da senha pelo HTML tanto quanto o navegador permite.
+
+Corrigi ainda as referências numéricas: 201, por exemplo, passa a ser tratada como 0201. Isso foi aplicado de forma consistente no catálogo, BI e tabela de preços para não corrigir apenas a aparência e depois quebrar os cruzamentos.
+
+No painel do Léo, deixei os dados da filial analisada em uma identificação visual e os dados da última venda da rede em outra, para ficar fácil distinguir os dois conjuntos. Agora aparecem também estoque da filial da última venda, filial, data e valor dessa venda.
+
+Para o valor da última venda, como o relatório possui Sell-in na R e Sell-in Valor na S, passei a calcular o valor unitário usando S ÷ R quando os dois estiverem preenchidos. Se não houver quantidade para dividir, o sistema usa o valor disponível em S. Isso deve resolver aqueles - que estavam aparecendo quando havia informação aproveitável.
+
+E implementei a proteção do desconto manual: se o Léo alterar individualmente um item, ele fica marcado como “Manual — protegido”. Depois, mesmo que aplique 30%, 50% etc. em Todos ou na Pirâmide, aquele item fica exatamente como o Léo definiu manualmente. Os demais continuam sendo atualizados instantaneamente.
+
+Arquivos:
+
+Baixar INDEX V11
+
+Baixar GS V11
+
+Validei a sintaxe JavaScript dos dois arquivos antes de entregar. Suba os dois e publique uma nova versão do Web App, porque essa atualização envolve mudanças coordenadas entre INDEX e GS.
+
+index_promocao_v11_performance_fluxo.html
+HTML
+algo se quebrou no aplicativo, eu liberei artur fazer uma promocao ai fui coloquei uns cod lá , na hra que fui evr a lista tava zerada, na planilha não tem nada lá, outra coisa, na analise do leo retira aquela parte de valor da venda pois não temos essa informação, outra coisa é aquela separação que vc colocou ficou mt ruim eu queria algo mais sutil, como tom de cor de uma filial diferente da outra, o cabeçalho não precisa mudar
+
+Achei o que quebrou a V11. Não foi a lógica da ARTUR nem o banco: entrou uma declaração duplicada no GS dentro da rotina de última venda. Isso comprometia a execução do backend e explica perfeitamente o comportamento que você viu: o INDEX colocava a peça temporariamente na tela, mas ela não era efetivamente gravada na PROMO_ITENS; depois, ao consultar a lista real, voltava zerada.
+
+Corrigi isso na V12 e também blindei o INDEX contra outro problema: enquanto existir uma gravação de peça em andamento, Minha Lista não pode buscar uma lista vazia do servidor e sobrescrever os itens locais.
+
+Também fiz exatamente os ajustes visuais que pediu: retirei Valor vendido da análise do Léo; mantive o cabeçalho normal, sem aquelas divisões fortes; agora somente as células dos dados recebem tons bem suaves — um tom para os dados da filial que está sendo analisada e outro para os dados da filial da última venda. Fica muito mais discreto.
+
+Mantive na análise:
+
+Produto | Estoque da filial analisada | Preço atual | Última venda da filial analisada | Última venda na rede | Filial da última venda | Estoque nessa filial | Pirâmide | Desconto | Novo preço
+
+E removi também o processamento desnecessário do valor da venda da nova base.
+
+Atualize os dois, principalmente o GS:
+
+Baixar INDEX V12 corrigido
+
+Baixar GS V12 corrigido
+
+Validei a sintaxe dos dois desta vez. Depois de publicar o GS como nova versão do Web App, eu faria primeiro exatamente este teste: abrir ARTUR → adicionar 1 EAN → conferir se imediatamente apareceu uma linha na PROMO_ITENS → abrir Minha Lista. Esse é o ponto que estava quebrado na V11.
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -9,7 +108,7 @@
 <style>
 :root{--navy:#082f51;--blue:#1476df;--bg:#f4f7fa;--card:#fff;--line:#dce4eb;--text:#172333;--muted:#687b8c;--green:#18855f;--red:#b84350;--amber:#d18a00;--shadow:0 8px 28px #18334c18}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 Inter,system-ui,Segoe UI,Arial,sans-serif}.hidden{display:none!important}button,input,select{font:inherit}.login{min-height:100vh;display:grid;place-items:center;padding:20px;background:linear-gradient(135deg,#07365e,#0a2440)}.loginCard{width:min(430px,94vw);background:#fff;border-radius:10px;padding:32px;box-shadow:0 18px 45px #001b3560}.brand{text-align:center;color:#0b3153;font-size:46px;font-weight:950;letter-spacing:2px;line-height:1}.brand small{display:block;font-size:10px;letter-spacing:5px;margin-top:3px}.loginCard h1{text-align:center;margin:26px 0 2px}.muted{color:var(--muted)}.loginCard>.muted{text-align:center}.field{margin:14px 0}.field label{display:block;font-size:11px;font-weight:900;margin-bottom:6px;color:#506474;text-transform:uppercase}.input,select{width:100%;padding:12px 13px;border:1px solid #d5dfe7;border-radius:10px;background:#fff;color:var(--text);outline:none}.input:focus,select:focus{border-color:var(--blue)}.btn{border:1px solid #d6e0e8;border-radius:10px;padding:11px 15px;background:#eef2f6;color:#23384a;font-weight:850;cursor:pointer}.btn.primary{background:var(--blue);border-color:var(--blue);color:#fff}.btn.good{background:var(--green);border-color:var(--green);color:#fff}.btn.danger{background:var(--red);border-color:var(--red);color:#fff}.btn.full{width:100%}.shell{display:grid;grid-template-columns:230px 1fr;min-height:100vh}.side{background:linear-gradient(180deg,#0a355b,#062844);padding:22px 14px;position:sticky;top:0;height:100vh}.side .brand{color:#fff;font-size:31px;padding:4px 12px 24px}.nav{display:grid;gap:7px}.nav button{border:0;text-align:left;background:transparent;color:#e5eef6;padding:12px 13px;border-radius:10px;font-weight:800}.nav button.active,.nav button:hover{background:#0d5aa0}.main{padding:26px;min-width:0}.top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:22px}.top h1{margin:0;font-size:26px}.chip{padding:8px 12px;background:#fff;border:1px solid var(--line);border-radius:999px;font-weight:800}.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.card{background:#fff;border:1px solid #e0e7ed;border-radius:12px;padding:18px;box-shadow:var(--shadow)}.metric span{display:block;color:#647687;font-size:11px;font-weight:900}.metric strong{display:block;font-size:25px;margin-top:5px}.sectionTitle{display:flex;justify-content:space-between;align-items:center;margin:22px 0 10px}.sectionTitle h2{margin:0;font-size:18px}.scanGrid{display:grid;grid-template-columns:minmax(300px,420px) 1fr;gap:15px}.manual{display:flex;gap:8px}.manual .input{flex:1}.productCard{border:1px solid var(--line);border-radius:12px;padding:15px;background:#f8fafc;margin-top:12px}.productCode{font-size:22px;font-weight:950;color:#0b3153}.facts{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}.fact{background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px}.fact small{display:block;color:var(--muted);font-weight:800}.fact b{font-size:16px}.tableWrap{overflow:auto;border:1px solid var(--line);border-radius:12px}.table{width:100%;border-collapse:collapse;min-width:900px;background:#fff}.table th,.table td{padding:11px;border-bottom:1px solid #e6ebef;text-align:left}.table th{background:#f1f4f7;color:#506474;font-size:10px;text-transform:uppercase}.badge{display:inline-block;padding:5px 9px;border-radius:999px;font-size:11px;font-weight:900}.green{background:#e4f5ed;color:#167a58}.red{background:#fde8eb;color:#b92e3d}.amber{background:#fff2cf;color:#8a5a00}.rowActions{display:flex;gap:7px;flex-wrap:wrap}.discountBar{display:grid;grid-template-columns:1fr 140px auto;gap:8px;align-items:end}.loading{position:fixed;inset:0;background:#06111bd9;display:grid;place-items:center;z-index:3000}.spinner{width:44px;height:44px;border:4px solid #60798d;border-top-color:#2a9cff;border-radius:50%;animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}.toast{position:fixed;right:18px;bottom:18px;background:#173c5c;color:#fff;padding:13px 16px;border-radius:12px;z-index:4000;box-shadow:var(--shadow);max-width:380px}.modalBack{position:fixed;inset:0;background:#000a;display:grid;place-items:center;padding:18px;z-index:2500}.modal{width:min(540px,96vw);background:#fff;border-radius:16px;padding:22px;box-shadow:0 20px 60px #0005}.modal h3{margin-top:0}.mobileTop,.mobileNav{display:none}
-#scanner{position:fixed;inset:0;background:#000e;z-index:5000;display:flex;align-items:center;justify-content:center;padding:14px}.scannerCard{width:min(720px,96vw);background:#0b0b0c;border:1px solid #334155;border-radius:18px;overflow:hidden}.scannerTop{display:flex;justify-content:space-between;align-items:center;padding:12px;color:#fff}.scannerView{padding:10px}.scannerInfo{color:#e5e7eb;text-align:center;padding:12px;border-top:1px solid #334155}.paused{outline:3px solid #22c55e}.empty{padding:25px;text-align:center;color:var(--muted)}.ownData{background:#eef7ff!important;border-left:4px solid #1476df}.networkData{background:#fff8e8!important;border-left:4px solid #d18a00}.readonlyNotice{background:#fff7df;border:1px solid #f0d487;border-radius:12px;padding:16px 18px;margin-bottom:14px;color:#654b00;font-weight:750}.statusText{font-size:20px;font-weight:900}.saleMeta{font-size:11px;color:var(--muted);margin-top:3px}
+#scanner{position:fixed;inset:0;background:#000e;z-index:5000;display:flex;align-items:center;justify-content:center;padding:14px}.scannerCard{width:min(720px,96vw);background:#0b0b0c;border:1px solid #334155;border-radius:18px;overflow:hidden}.scannerTop{display:flex;justify-content:space-between;align-items:center;padding:12px;color:#fff}.scannerView{padding:10px}.scannerInfo{color:#e5e7eb;text-align:center;padding:12px;border-top:1px solid #334155}.paused{outline:3px solid #22c55e}.empty{padding:25px;text-align:center;color:var(--muted)}.ownData{background:#f3f8fd!important}.networkData{background:#f4faf5!important}.readonlyNotice{background:#fff7df;border:1px solid #f0d487;border-radius:12px;padding:16px 18px;margin-bottom:14px;color:#654b00;font-weight:750}.statusText{font-size:20px;font-weight:900}.saleMeta{font-size:11px;color:var(--muted);margin-top:3px}
 @media(max-width:850px){.shell{display:block}.side{display:none}.main{padding:15px 15px 82px}.mobileTop{display:flex;position:sticky;top:0;z-index:50;background:#082f51;color:#fff;padding:10px 13px;justify-content:space-between}.mobileTop .brand{font-size:20px;color:#fff}.mobileNav{display:flex;position:fixed;bottom:0;left:0;right:0;background:#082f51;z-index:100;padding:7px;overflow:auto}.mobileNav button{flex:1;min-width:76px;border:0;background:transparent;color:#dce8f1;padding:8px 5px;font-size:11px;font-weight:800}.cards,.scanGrid{grid-template-columns:1fr}.facts{grid-template-columns:1fr 1fr}.discountBar{grid-template-columns:1fr}.top h1{font-size:22px}}
 </style>
 </head>
@@ -22,7 +121,7 @@
 <script>
 const API_URL='https://script.google.com/macros/s/AKfycbyu4WrW945rJlJ9dAu8vhyJAFsdPZchU-eCNB5ZVe5nCODEw1kb3G_vTWPX9UCooF51sw/exec';
 const DB_NAME='hs_promocao_v1',DB_STORE='cache';
-const S={token:localStorage.getItem('hs_promo_token')||'',user:null,data:null,page:'inicio',catalogo:{},bi:{},precos:{},pending:null,scanner:null,scannerLocked:false,baseSyncPromise:null,basesHydrated:false};
+const S={token:localStorage.getItem('hs_promo_token')||'',user:null,data:null,page:'inicio',catalogo:{},bi:{},precos:{},pending:null,scanner:null,scannerLocked:false,baseSyncPromise:null,basesHydrated:false,pendingWrites:0};
 const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
 function load(v=true){$('#loading').classList.toggle('hidden',!v)} function toast(t){let e=$('#toast');e.textContent=t;e.classList.remove('hidden');setTimeout(()=>e.classList.add('hidden'),3000)}
 async function apiLong(api,p={}){
@@ -84,7 +183,7 @@ async function syncBases(){
 }
 function statusLabel(s){return ({EM_COLETA:'Em coleta',AGUARDANDO_ANALISE:'Em análise',EM_ANALISE:'Em análise',FINALIZADA:'Finalizada',CANCELADA:'Cancelada',FECHADA:'Fechada'})[String(s||'')]||String(s||'').replaceAll('_',' ')}
 function coletaAberta(){return S.data?.promocao?.status==='EM_COLETA'}
-function renderInicio(){if(S.user.perfil==='ADMIN'){const fs=S.data.filiais||[],ativas=fs.filter(x=>x.status==='EM_COLETA').length,aguard=fs.filter(x=>['AGUARDANDO_ANALISE','EM_ANALISE'].includes(x.status)).length;$('#main').innerHTML=head('Painel de Promoções','Controle das filiais e análises. · v11')+`<div class="cards"><div class="card metric"><span>FILIAIS EM COLETA</span><strong>${ativas}</strong></div><div class="card metric"><span>AGUARDANDO ANÁLISE</span><strong>${aguard}</strong></div><div class="card metric"><span>FILIAIS</span><strong>${fs.length}</strong></div></div><div class="sectionTitle"><h2>Filiais</h2></div>${filiaisCards(fs)}`;return}const p=S.data.promocao,aberta=p?.status==='EM_COLETA';$('#main').innerHTML=head('Promoção — '+S.user.filialNome,aberta?'Bipe e confirme os itens que irão para análise.':'Sua lista foi enviada e está sendo analisada.')+`${!aberta?'<div class="readonlyNotice">Sua lista de promoção está em análise. Aguarde o Léo concluir e gerar o CSV. Até lá você pode consultar sua lista, mas não incluir ou remover peças.</div>':''}<div class="cards" style="grid-template-columns:repeat(2,1fr)"><div class="card metric"><span>STATUS</span><strong class="statusText">${esc(statusLabel(p?.status||'FECHADA'))}</strong></div><div class="card metric"><span>ITENS NA LISTA</span><strong>${S.data.itens?.length||0}</strong></div></div>${aberta?'<button class="btn primary full" style="margin-top:15px" onclick="go(\'coleta\')">Bipar peças</button>':'<button class="btn full" style="margin-top:15px" onclick="go(\'lista\')">Consultar minha lista</button>'}`}
+function renderInicio(){if(S.user.perfil==='ADMIN'){const fs=S.data.filiais||[],ativas=fs.filter(x=>x.status==='EM_COLETA').length,aguard=fs.filter(x=>['AGUARDANDO_ANALISE','EM_ANALISE'].includes(x.status)).length;$('#main').innerHTML=head('Painel de Promoções','Controle das filiais e análises. · v12')+`<div class="cards"><div class="card metric"><span>FILIAIS EM COLETA</span><strong>${ativas}</strong></div><div class="card metric"><span>AGUARDANDO ANÁLISE</span><strong>${aguard}</strong></div><div class="card metric"><span>FILIAIS</span><strong>${fs.length}</strong></div></div><div class="sectionTitle"><h2>Filiais</h2></div>${filiaisCards(fs)}`;return}const p=S.data.promocao,aberta=p?.status==='EM_COLETA';$('#main').innerHTML=head('Promoção — '+S.user.filialNome,aberta?'Bipe e confirme os itens que irão para análise.':'Sua lista foi enviada e está sendo analisada.')+`${!aberta?'<div class="readonlyNotice">Sua lista de promoção está em análise. Aguarde o Léo concluir e gerar o CSV. Até lá você pode consultar sua lista, mas não incluir ou remover peças.</div>':''}<div class="cards" style="grid-template-columns:repeat(2,1fr)"><div class="card metric"><span>STATUS</span><strong class="statusText">${esc(statusLabel(p?.status||'FECHADA'))}</strong></div><div class="card metric"><span>ITENS NA LISTA</span><strong>${S.data.itens?.length||0}</strong></div></div>${aberta?'<button class="btn primary full" style="margin-top:15px" onclick="go(\'coleta\')">Bipar peças</button>':'<button class="btn full" style="margin-top:15px" onclick="go(\'lista\')">Consultar minha lista</button>'}`}
 function filiaisCards(fs){return `<div class="cards">${fs.map(f=>{const emAnalise=['AGUARDANDO_ANALISE','EM_ANALISE'].includes(f.status);return `<div class="card"><b>${esc(f.nome)}</b><p><span class="badge ${f.status==='EM_COLETA'?'green':emAnalise?'amber':'red'}">${esc(statusLabel(f.status))}</span></p><div class="rowActions">${['FECHADA','FINALIZADA','CANCELADA'].includes(f.status)?`<button class="btn good" onclick="iniciarPromo('${f.codigo}')">Iniciar promoção</button>`:''}${f.status==='EM_COLETA'?`<button class="btn danger" onclick="fecharPromo('${f.codigo}')">Bloquear coleta</button>`:''}${emAnalise?`<button class="btn primary" onclick="abrirAnalise('${f.codigo}')">Analisar</button><button class="btn danger" onclick="cancelarPromo('${f.codigo}')">Cancelar</button>`:''}</div></div>`}).join('')}</div>`}
 async function renderColeta(){if(S.user.perfil==='ADMIN')return go('inicio');if(!coletaAberta()){go('inicio');toast('Sua lista de promoção já está em análise. Aguarde a conclusão.');return}if(!Object.keys(S.catalogo).length){$('#main').innerHTML=head('Bipar peças','')+`<div class="card"><div style="display:flex;align-items:center;gap:12px"><div class="spinner" style="width:28px;height:28px;border-width:3px"></div><b>Carregando...</b></div></div>`;const ok=await syncBases();if(!ok||!Object.keys(S.catalogo).length)return;if(S.page!=='coleta')return;}$('#main').innerHTML=head('Bipar peças','Leitura por câmera ou inclusão manual.')+`<div class="scanGrid"><div class="card"><h3>Adicionar peça</h3><button class="btn good full" onclick="openScanner()">📷 Escanear EAN</button><div class="field"><label>Inclusão manual</label><div class="manual"><input id="manualEAN" class="input" inputmode="numeric" maxlength="20" placeholder="Digite ou cole o EAN"><button class="btn primary" onclick="manualEAN()">Adicionar</button></div></div><div id="candidate"></div></div><div class="card"><h3>Lista atual</h3><div id="quickList"></div></div></div>`;$('#manualEAN').onkeydown=e=>{if(e.key==='Enter')manualEAN()};renderQuick()}
 function normalize(v){return String(v??'').trim().toUpperCase()}
@@ -98,39 +197,49 @@ function dateBR(v){
   return s;
 }
 function biKey(ref,cor,tam){return [normalize(S.user.filialCodigo),normalize(ref),normalize(cor),normalize(tam)].join('|')}
-function processEAN(raw){const ean=(String(raw).match(/\d{13}/)||[])[0];if(!ean)return toast('EAN inválido. Informe 13 dígitos.');const c=S.catalogo[ean];if(!c)return toast('EAN não encontrado no catálogo.');const b=S.bi[biKey(c.ref,c.cor,c.tam)]||{};const ult=S.bi[latestKey(c.ref,c.cor,c.tam)]||{};const preco=S.precos[normalize(c.ref)];S.pending={ean,...c,estoque:Number(b.estoque||0),piramide:b.piramide||'',dataUltima:b.dataUltima||'',preco:Number(preco||0),ultimaVendaData:ult.data||'',ultimaVendaFilial:ult.filial||'',ultimaVendaValor:Number(ult.valor||0),ultimaVendaEstoque:Number(ult.estoque||0)};renderCandidate();return true}
+function processEAN(raw){const ean=(String(raw).match(/\d{13}/)||[])[0];if(!ean)return toast('EAN inválido. Informe 13 dígitos.');const c=S.catalogo[ean];if(!c)return toast('EAN não encontrado no catálogo.');const b=S.bi[biKey(c.ref,c.cor,c.tam)]||{};const ult=S.bi[latestKey(c.ref,c.cor,c.tam)]||{};const preco=S.precos[normalize(c.ref)];S.pending={ean,...c,estoque:Number(b.estoque||0),piramide:b.piramide||'',dataUltima:b.dataUltima||'',preco:Number(preco||0),ultimaVendaData:ult.data||'',ultimaVendaFilial:ult.filial||'',ultimaVendaEstoque:Number(ult.estoque||0)};renderCandidate();return true}
 function renderCandidate(){const x=S.pending;if(!x)return;$('#candidate').innerHTML=`<div class="productCard"><div class="productCode">${esc(x.ref)} · ${esc(x.cor)} · ${esc(x.tam)}</div><div class="muted">EAN ${esc(x.ean)}</div><div class="facts"><div class="fact"><small>Estoque</small><b>${x.estoque}</b></div><div class="fact"><small>Preço atual</small><b>${money(x.preco)}</b></div><div class="fact"><small>Pirâmide</small><b>${esc(x.piramide||'-')}</b></div></div><div class="rowActions"><button class="btn good" onclick="confirmItem()">Confirmar item</button><button class="btn" onclick="S.pending=null;$('#candidate').innerHTML=''">Cancelar</button></div></div>`}
 async function confirmItem(){
   if(!S.pending)return;
   const item={...S.pending};
   const tempId='LOCAL_'+Date.now()+'_'+Math.random().toString(36).slice(2);
-  const optimistic={...item,id:tempId};
+  const optimistic={...item,id:tempId,_localPending:true};
   S.data.itens=S.data.itens||[];
-
   const exists=S.data.itens.some(i=>normalize(i.ref)===normalize(item.ref)&&normalize(i.cor)===normalize(item.cor)&&normalize(i.tam)===normalize(item.tam));
   if(exists){toast('Este item já está na lista.');S.pending=null;renderColeta();return}
-
-  S.data.itens.push(optimistic);
-  S.pending=null;
-  renderColeta();
-  toast('Item incluído.');
-
+  S.data.itens.push(optimistic);S.pending=null;S.pendingWrites++;
+  renderColeta();toast('Salvando item...');
   try{
     const j=await apiLong('adicionarItem',{item});
     if(j.itens)S.data.itens=j.itens;
-    if(S.page==='coleta')renderQuick();
-    if(S.page==='lista')renderLista();
+    toast('Item incluído.');
   }catch(e){
     S.data.itens=(S.data.itens||[]).filter(i=>i.id!==tempId);
+    toast('Não foi possível gravar o item. Tente novamente.');
+  }finally{
+    S.pendingWrites=Math.max(0,S.pendingWrites-1);
     if(S.page==='coleta')renderQuick();
     if(S.page==='lista')renderLista();
-    toast('Não foi possível gravar o item. Tente novamente.');
   }
 }
 function manualEAN(){const i=$('#manualEAN');if(processEAN(i.value)){i.value='';i.focus()}}
 function renderQuick(){const e=$('#quickList');if(!e)return;const a=S.data.itens||[];e.innerHTML=a.length?a.slice().reverse().slice(0,15).map(x=>`<div style="padding:9px 0;border-bottom:1px solid #e6ebef"><b>${esc(x.ref)} · ${esc(x.cor)} · ${esc(x.tam)}</b><br><span class="muted">Estoque ${x.estoque} • ${money(x.preco)}</span></div>`).join(''):`<div class="empty">Nenhum item adicionado.</div>`}
 function renderLista(){const a=S.data.itens||[],edit=coletaAberta();$('#main').innerHTML=head('Minha lista',edit?'Revise antes de enviar ao Léo.':'Lista enviada para análise.')+(!edit?'<div class="readonlyNotice">Esta promoção está em análise. A lista está disponível somente para consulta.</div>':'')+itemsTable(a,edit)+(edit&&a.length?`<button class="btn primary full" style="margin-top:14px" onclick="enviarAnalise()">Enviar lista para análise</button>`:'');refreshListaSilenciosa()}
-async function refreshListaSilenciosa(){try{const j=await apiLong('listarItens');if(j.itens){const antes=JSON.stringify(S.data.itens||[]),depois=JSON.stringify(j.itens);S.data.itens=j.itens;if(S.page==='lista'&&antes!==depois){const a=S.data.itens||[];$('#main').innerHTML=head('Minha lista',coletaAberta()?'Revise antes de enviar ao Léo.':'Lista enviada para análise.')+itemsTable(a,coletaAberta())+(coletaAberta()&&a.length?`<button class="btn primary full" style="margin-top:14px" onclick="enviarAnalise()">Enviar lista para análise</button>`:'')}}}catch(e){}}
+async function refreshListaSilenciosa(){
+  if(S.pendingWrites>0)return;
+  try{
+    const j=await apiLong('listarItens');
+    if(S.pendingWrites>0)return;
+    if(j.itens){
+      const antes=JSON.stringify(S.data.itens||[]),depois=JSON.stringify(j.itens);
+      S.data.itens=j.itens;
+      if(S.page==='lista'&&antes!==depois){
+        const a=S.data.itens||[],edit=coletaAberta();
+        $('#main').innerHTML=head('Minha lista',edit?'Revise antes de enviar ao Léo.':'Lista enviada para análise.')+(!edit?'<div class="readonlyNotice">Esta promoção está em análise. A lista está disponível somente para consulta.</div>':'')+itemsTable(a,edit)+(edit&&a.length?`<button class="btn primary full" style="margin-top:14px" onclick="enviarAnalise()">Enviar lista para análise</button>`:'');
+      }
+    }
+  }catch(e){}
+}
 function itemsTable(a,edit=false){return `<div class="tableWrap"><table class="table"><thead><tr><th>Produto</th><th>Estoque</th><th>Preço atual</th><th>Pirâmide</th><th>Data da última venda</th>${edit?'<th>Ação</th>':''}</tr></thead><tbody>${a.length?a.map(x=>`<tr><td><b>${esc(x.ref)} · ${esc(x.cor)} · ${esc(x.tam)}</b><br><span class="muted">${esc(x.ean||'')}</span></td><td>${x.estoque}</td><td>${money(x.preco)}</td><td>${esc(x.piramide||'-')}</td><td>${dateBR(x.dataUltima)}</td>${edit?`<td><button class="btn danger" onclick="removerItem('${esc(x.id)}')">Remover</button></td>`:''}</tr>`).join(''):`<tr><td colspan="6" class="empty">Nenhum item.</td></tr>`}</tbody></table></div>`}
 async function removerItem(id){try{load();const j=await api('removerItem',{id});S.data.itens=j.itens;renderLista()}catch(e){toast(e.message)}finally{load(false)}}
 async function enviarAnalise(){if(!confirm('Enviar a lista para análise do Léo?'))return;try{load();await api('enviarAnalise');await refresh();go('inicio');$('#modalBox').innerHTML='<h3>Lista enviada</h3><p>Sua lista foi enviada para análise do Léo. Você poderá consultar os itens, mas novas inclusões ficarão bloqueadas até a conclusão desta promoção.</p><div class="rowActions"><button class="btn primary" onclick="closeModal()">OK</button></div>';$('#modal').classList.remove('hidden')}catch(e){toast(e.message)}finally{load(false)}}
@@ -139,7 +248,7 @@ async function fecharPromo(c){try{load();await api('fecharColeta',{filialCodigo:
 async function cancelarPromo(c){if(!confirm('Cancelar esta promoção? Ela ficará no histórico e uma nova promoção poderá ser iniciada para a filial.'))return;try{load();await api('cancelarPromocao',{filialCodigo:c});await refresh();go('inicio');toast('Promoção cancelada.')}catch(e){toast(e.message)}finally{load(false)}}
 function renderFiliais(){$('#main').innerHTML=head('Filiais','Inicie ou bloqueie a coleta por filial.')+filiaisCards(S.data.filiais||[])}
 async function abrirAnalise(c){S.data.analise=await api('obterAnalise',{filialCodigo:c});S.data.analiseCodigo=c;go('analise')}
-function renderAnalise(){const a=S.data.analise;if(!a){const pend=(S.data.filiais||[]).filter(x=>['AGUARDANDO_ANALISE','EM_ANALISE'].includes(x.status));$('#main').innerHTML=head('Análise','Escolha uma filial aguardando análise.')+filiaisCards(pend);return}const pir=[...new Set(a.itens.map(x=>x.piramide).filter(Boolean))];$('#main').innerHTML=head('Análise — '+a.filialNome,'Defina descontos e gere o CSV.')+`<div class="card"><div class="discountBar"><div class="field"><label>Aplicar em</label><select id="discTarget"><option value="TODOS">Todos os itens</option>${pir.map(x=>`<option value="${esc(x)}">Pirâmide: ${esc(x)}</option>`).join('')}</select></div><div class="field"><label>Desconto %</label><input id="discPct" class="input" type="number" min="0" max="100" step="0.01"></div><button class="btn primary" onclick="applyDiscount()">Aplicar</button></div></div><div class="sectionTitle"><h2>Itens</h2></div><div class="tableWrap"><table class="table"><thead><tr><th>Produto</th><th class="ownData">Estoque ${esc(a.filialNome)}</th><th>Preço atual</th><th class="ownData">Última venda ${esc(a.filialNome)}</th><th class="networkData">Última venda na rede</th><th class="networkData">Filial da última venda</th><th class="networkData">Estoque nessa filial</th><th class="networkData">Valor vendido</th><th>Pirâmide</th><th>Desconto %</th><th>Novo preço</th></tr></thead><tbody>${a.itens.map(x=>`<tr><td><b>${esc(x.ref)} · ${esc(x.cor)} · ${esc(x.tam)}</b></td><td class="ownData">${x.estoque}</td><td>${money(x.preco)}</td><td class="ownData">${dateBR(x.dataUltima)}</td><td class="networkData">${dateBR(x.ultimaVendaData)}</td><td class="networkData">${esc(x.ultimaVendaFilial||'-')}</td><td class="networkData">${x.ultimaVendaFilial?Number(x.ultimaVendaEstoque||0):'-'}</td><td class="networkData">${x.ultimaVendaValor?money(x.ultimaVendaValor):'-'}</td><td>${esc(x.piramide||'-')}</td><td><input class="input" style="width:90px" type="number" min="0" max="100" step=".01" value="${x.desconto||0}" onchange="itemDiscount('${x.id}',this.value)"><div class="saleMeta">${x.descontoManual?'Manual — protegido':''}</div></td><td><b id="np_${x.id}">${money(calcNew(x.preco,x.desconto))}</b></td></tr>`).join('')}</tbody></table></div><button class="btn good full" style="margin-top:14px" onclick="gerarCSV()">Gerar CSV</button>`}
+function renderAnalise(){const a=S.data.analise;if(!a){const pend=(S.data.filiais||[]).filter(x=>['AGUARDANDO_ANALISE','EM_ANALISE'].includes(x.status));$('#main').innerHTML=head('Análise','Escolha uma filial aguardando análise.')+filiaisCards(pend);return}const pir=[...new Set(a.itens.map(x=>x.piramide).filter(Boolean))];$('#main').innerHTML=head('Análise — '+a.filialNome,'Defina descontos e gere o CSV.')+`<div class="card"><div class="discountBar"><div class="field"><label>Aplicar em</label><select id="discTarget"><option value="TODOS">Todos os itens</option>${pir.map(x=>`<option value="${esc(x)}">Pirâmide: ${esc(x)}</option>`).join('')}</select></div><div class="field"><label>Desconto %</label><input id="discPct" class="input" type="number" min="0" max="100" step="0.01"></div><button class="btn primary" onclick="applyDiscount()">Aplicar</button></div></div><div class="sectionTitle"><h2>Itens</h2></div><div class="tableWrap"><table class="table"><thead><tr><th>Produto</th><th>Estoque ${esc(a.filialNome)}</th><th>Preço atual</th><th>Última venda ${esc(a.filialNome)}</th><th>Última venda na rede</th><th>Filial da última venda</th><th>Estoque nessa filial</th><th>Pirâmide</th><th>Desconto %</th><th>Novo preço</th></tr></thead><tbody>${a.itens.map(x=>`<tr><td><b>${esc(x.ref)} · ${esc(x.cor)} · ${esc(x.tam)}</b></td><td class="ownData">${x.estoque}</td><td>${money(x.preco)}</td><td class="ownData">${dateBR(x.dataUltima)}</td><td class="networkData">${dateBR(x.ultimaVendaData)}</td><td class="networkData">${esc(x.ultimaVendaFilial||'-')}</td><td class="networkData">${x.ultimaVendaFilial?Number(x.ultimaVendaEstoque||0):'-'}</td><td>${esc(x.piramide||'-')}</td><td><input class="input" style="width:90px" type="number" min="0" max="100" step=".01" value="${x.desconto||0}" onchange="itemDiscount('${x.id}',this.value)"><div class="saleMeta">${x.descontoManual?'Manual — protegido':''}</div></td><td><b id="np_${x.id}">${money(calcNew(x.preco,x.desconto))}</b></td></tr>`).join('')}</tbody></table></div><button class="btn good full" style="margin-top:14px" onclick="gerarCSV()">Gerar CSV</button>`}
 function calcNew(p,d){const bruto=Math.max(0,Number(p||0)*(1-Number(d||0)/100));return Math.floor(bruto)+0.98}
 async function itemDiscount(id,v){const pct=Math.max(0,Math.min(100,Number(v)||0));const x=S.data.analise.itens.find(i=>i.id===id);if(x){x.desconto=pct;x.descontoManual=true;$('#np_'+id).textContent=money(calcNew(x.preco,pct))}try{await api('salvarDesconto',{id,desconto:pct})}catch(e){toast(e.message)}}
 async function applyDiscount(){const t=$('#discTarget').value,p=Math.max(0,Math.min(100,Number($('#discPct').value)||0));const candidatos=S.data.analise.itens.filter(x=>t==='TODOS'||normalize(x.piramide)===normalize(t)),afetados=candidatos.filter(x=>!x.descontoManual);afetados.forEach(x=>x.desconto=p);renderAnalise();const protegidos=candidatos.length-afetados.length;toast(`${afetados.length} item(ns) atualizado(s).${protegidos?` ${protegidos} manual(is) mantido(s).`:''}`);try{await apiLong('aplicarDesconto',{filialCodigo:S.data.analiseCodigo,alvo:t,desconto:p})}catch(e){toast('O desconto apareceu na tela, mas não foi possível salvar no banco. Tente aplicar novamente.')}}
@@ -168,3 +277,5 @@ function beep(){try{const a=new (window.AudioContext||window.webkitAudioContext)
 if(S.token){boot().catch(e=>{$('#login').classList.remove('hidden');$('#system').classList.add('hidden');$('#loginErr').textContent=e.message||'Não foi possível reconectar. Tente novamente.';$('#loginErr').classList.remove('hidden')})}
 </script>
 </body></html>
+index_promocao_v12_gravacao_analise.html
+HTML
