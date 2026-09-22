@@ -25,6 +25,16 @@ const DB_NAME='hs_promocao_v1',DB_STORE='cache';
 const S={token:localStorage.getItem('hs_promo_token')||'',user:null,data:null,page:'inicio',catalogo:{},bi:{},precos:{},pending:null,scanner:null,scannerLocked:false};
 const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
 function load(v=true){$('#loading').classList.toggle('hidden',!v)} function toast(t){let e=$('#toast');e.textContent=t;e.classList.remove('hidden');setTimeout(()=>e.classList.add('hidden'),3000)}
+async function apiLong(api,p={}){
+  const b=new URLSearchParams({api,token:S.token,...Object.fromEntries(Object.entries(p).map(([k,v])=>[k,typeof v==='object'?JSON.stringify(v):String(v??'')]))},_ts:Date.now()});
+  const r=await fetch(API_URL,{method:'POST',body:b,redirect:'follow',cache:'no-store'});
+  const t=await r.text();
+  if(!r.ok)throw Error('HTTP '+r.status);
+  let j;try{j=JSON.parse(t)}catch{throw Error('Resposta inválida do servidor.')}
+  if(!j.ok)throw Error(j.message||'Não foi possível concluir.');
+  return j;
+}
+
 let API_IN_FLIGHT=0;
 async function api(api,p={}){
   if(!API_URL.startsWith('https://script.google.com/'))throw Error('Configure API_URL no index.html.');
@@ -60,7 +70,23 @@ function navItems(){return S.user.perfil==='ADMIN'?[['inicio','Início'],['anali
 function renderNav(){let h=navItems().map(([p,n])=>`<button data-p="${p}" onclick="go('${p}')">${n}</button>`).join('')+`<button onclick="logout()">Sair</button>`;$('#nav').innerHTML=h;$('#mobileNav').innerHTML=h}
 function head(t,s=''){return `<div class="top"><div><h1>${esc(t)}</h1>${s?`<div class="muted">${esc(s)}</div>`:''}</div><span class="chip">${esc(S.user.perfil==='ADMIN'?'Léo • Admin':S.user.filialNome)}</span></div>`}
 function go(p){S.page=p;document.querySelectorAll('[data-p]').forEach(b=>b.classList.toggle('active',b.dataset.p===p));({inicio:renderInicio,coleta:renderColeta,lista:renderLista,analise:renderAnalise,filiais:renderFiliais,usuarios:renderUsuarios}[p]||renderInicio)();scrollTo(0,0)}
-async function syncBases(){try{const ver=await api('versoesBases');await Promise.all(['catalogo','bi','precos'].map(async tipo=>{const key='base_'+tipo;let local=await cacheGet(key);if(!local||local.versao!==ver[tipo]){const j=await api('carregarBase',{tipo});local={versao:j.versao,dados:j.dados};await cacheSet(key,local)}S[tipo]=local.dados}));return true}catch(e){toast('Não foi possível atualizar as bases: '+e.message);return false}}
+async function syncBases(){try{
+  const ver=await api('versoesBases');
+  const tipos=['catalogo','bi','precos'];
+  const faltando=[];
+  for(const tipo of tipos){
+    const local=await cacheGet('base_'+tipo);
+    if(local&&local.versao===ver[tipo])S[tipo]=local.dados;
+    else faltando.push(tipo);
+  }
+  if(!faltando.length)return true;
+  const snap=await apiLong('snapshotBases',{tipos:faltando});
+  for(const tipo of faltando){
+    const local={versao:snap.versoes[tipo],dados:snap.bases[tipo]||{}};
+    await cacheSet('base_'+tipo,local);S[tipo]=local.dados;
+  }
+  return true;
+}catch(e){toast('Não foi possível atualizar as bases: '+e.message);return false}}
 function renderInicio(){if(S.user.perfil==='ADMIN'){const fs=S.data.filiais||[],ativas=fs.filter(x=>x.status==='EM_COLETA').length,aguard=fs.filter(x=>x.status==='AGUARDANDO_ANALISE').length;$('#main').innerHTML=head('Painel de Promoções','Controle das filiais e análises.')+`<div class="cards"><div class="card metric"><span>FILIAIS EM COLETA</span><strong>${ativas}</strong></div><div class="card metric"><span>AGUARDANDO ANÁLISE</span><strong>${aguard}</strong></div><div class="card metric"><span>FILIAIS</span><strong>${fs.length}</strong></div></div><div class="sectionTitle"><h2>Filiais</h2></div>${filiaisCards(fs)}`;return}const p=S.data.promocao;$('#main').innerHTML=head('Promoção — '+S.user.filialNome,'Bipe e confirme os itens que irão para análise.')+`<div class="cards"><div class="card metric"><span>STATUS</span><strong style="font-size:18px">${esc(p?.status||'FECHADA')}</strong></div><div class="card metric"><span>ITENS NA LISTA</span><strong>${S.data.itens?.length||0}</strong></div><div class="card metric"><span>BASE LOCAL</span><strong style="font-size:18px">${Object.keys(S.catalogo).length?'PRONTA':'CARREGANDO'}</strong></div></div><button class="btn primary full" style="margin-top:15px" onclick="go('coleta')">Bipar peças</button>`}
 function filiaisCards(fs){return `<div class="cards">${fs.map(f=>`<div class="card"><b>${esc(f.nome)}</b><p><span class="badge ${f.status==='EM_COLETA'?'green':f.status==='AGUARDANDO_ANALISE'?'amber':'red'}">${esc(f.status)}</span></p><div class="rowActions">${f.status==='FECHADA'||f.status==='FINALIZADA'?`<button class="btn good" onclick="iniciarPromo('${f.codigo}')">Iniciar promoção</button>`:''}${f.status==='EM_COLETA'?`<button class="btn danger" onclick="fecharPromo('${f.codigo}')">Bloquear coleta</button>`:''}${f.status==='AGUARDANDO_ANALISE'?`<button class="btn primary" onclick="abrirAnalise('${f.codigo}')">Analisar</button>`:''}</div></div>`).join('')}</div>`}
 async function renderColeta(){if(S.user.perfil==='ADMIN')return go('inicio');if(!Object.keys(S.catalogo).length){$('#main').innerHTML=head('Bipar peças','Preparando a base local...')+`<div class="card"><b>Carregando catálogo local</b><p class="muted">Na primeira carga pode levar alguns segundos. Depois fica salvo neste aparelho.</p></div>`;const ok=await syncBases();if(!ok||!Object.keys(S.catalogo).length)return; if(S.page!=='coleta')return;}$('#main').innerHTML=head('Bipar peças','Leitura por câmera ou inclusão manual.')+`<div class="scanGrid"><div class="card"><h3>Adicionar peça</h3><button class="btn good full" onclick="openScanner()">📷 Escanear EAN</button><div class="field"><label>Inclusão manual</label><div class="manual"><input id="manualEAN" class="input" inputmode="numeric" maxlength="20" placeholder="Digite ou cole o EAN"><button class="btn primary" onclick="manualEAN()">Adicionar</button></div></div><div id="candidate"></div></div><div class="card"><h3>Lista atual</h3><div id="quickList"></div></div></div>`;$('#manualEAN').onkeydown=e=>{if(e.key==='Enter')manualEAN()};renderQuick()}
