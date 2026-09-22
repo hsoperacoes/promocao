@@ -20,7 +20,7 @@
 <div id="modal" class="modalBack hidden"><div id="modalBox" class="modal"></div></div>
 <div id="loading" class="loading hidden"><div class="spinner"></div></div><div id="toast" class="toast hidden"></div>
 <script>
-const API_URL='COLE_AQUI_A_URL_DO_APPS_SCRIPT_EXEC';
+const API_URL='https://script.google.com/macros/s/AKfycbyu4WrW945rJlJ9dAu8vhyJAFsdPZchU-eCNB5ZVe5nCODEw1kb3G_vTWPX9UCooF51sw/exec';
 const DB_NAME='hs_promocao_v1',DB_STORE='cache';
 const S={token:localStorage.getItem('hs_promo_token')||'',user:null,data:null,page:'inicio',catalogo:{},bi:{},precos:{},pending:null,scanner:null,scannerLocked:false};
 const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
