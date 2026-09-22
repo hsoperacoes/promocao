@@ -26,7 +26,7 @@ const S={token:localStorage.getItem('hs_promo_token')||'',user:null,data:null,pa
 const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
 function load(v=true){$('#loading').classList.toggle('hidden',!v)} function toast(t){let e=$('#toast');e.textContent=t;e.classList.remove('hidden');setTimeout(()=>e.classList.add('hidden'),3000)}
 async function apiLong(api,p={}){
-  const b=new URLSearchParams({api,token:S.token,...Object.fromEntries(Object.entries(p).map(([k,v])=>[k,typeof v==='object'?JSON.stringify(v):String(v??'')]))},_ts:Date.now()});
+  const params={api,token:S.token,_ts:Date.now()}; Object.entries(p).forEach(([k,v])=>{params[k]=typeof v==='object'?JSON.stringify(v):String(v??'')}); const b=new URLSearchParams(params);
   const r=await fetch(API_URL,{method:'POST',body:b,redirect:'follow',cache:'no-store'});
   const t=await r.text();
   if(!r.ok)throw Error('HTTP '+r.status);
