@@ -8,6 +8,7 @@
 <script src="https://unpkg.com/html5-qrcode"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
 :root{--navy:#082f51;--blue:#1476df;--bg:#f4f7fa;--card:#fff;--line:#dce4eb;--text:#172333;--muted:#687b8c;--green:#18855f;--red:#b84350;--amber:#d18a00;--shadow:0 8px 28px #18334c18}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 Inter,system-ui,Segoe UI,Arial,sans-serif}.hidden{display:none!important}button,input,select{font:inherit}.login{min-height:100vh;display:grid;place-items:center;padding:20px;background:linear-gradient(135deg,#07365e,#0a2440)}.loginCard{width:min(430px,94vw);background:#fff;border-radius:10px;padding:32px;box-shadow:0 18px 45px #001b3560}.brand{text-align:center;color:#0b3153;font-size:46px;font-weight:950;letter-spacing:2px;line-height:1}.brand small{display:block;font-size:10px;letter-spacing:5px;margin-top:3px}.loginCard h1{text-align:center;margin:26px 0 2px}.muted{color:var(--muted)}.loginCard>.muted{text-align:center}.field{margin:14px 0}.field label{display:block;font-size:11px;font-weight:900;margin-bottom:6px;color:#506474;text-transform:uppercase}.input,select{width:100%;padding:12px 13px;border:1px solid #d5dfe7;border-radius:10px;background:#fff;color:var(--text);outline:none}.input:focus,select:focus{border-color:var(--blue)}.btn{border:1px solid #d6e0e8;border-radius:10px;padding:11px 15px;background:#eef2f6;color:#23384a;font-weight:850;cursor:pointer}.btn.primary{background:var(--blue);border-color:var(--blue);color:#fff}.btn.good{background:var(--green);border-color:var(--green);color:#fff}.btn.danger{background:var(--red);border-color:var(--red);color:#fff}.btn.full{width:100%}.shell{display:grid;grid-template-columns:230px 1fr;min-height:100vh}.side{background:linear-gradient(180deg,#0a355b,#062844);padding:22px 14px;position:sticky;top:0;height:100vh}.side .brand{color:#fff;font-size:31px;padding:4px 12px 24px}.nav{display:grid;gap:7px}.nav button{border:0;text-align:left;background:transparent;color:#e5eef6;padding:12px 13px;border-radius:10px;font-weight:800}.nav button.active,.nav button:hover{background:#0d5aa0}.main{padding:26px;min-width:0}.top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:22px}.top h1{margin:0;font-size:26px}.chip{padding:8px 12px;background:#fff;border:1px solid var(--line);border-radius:999px;font-weight:800}.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.card{background:#fff;border:1px solid #e0e7ed;border-radius:12px;padding:18px;box-shadow:var(--shadow)}.metric span{display:block;color:#647687;font-size:11px;font-weight:900}.metric strong{display:block;font-size:25px;margin-top:5px}.sectionTitle{display:flex;justify-content:space-between;align-items:center;margin:22px 0 10px}.sectionTitle h2{margin:0;font-size:18px}.scanGrid{display:grid;grid-template-columns:minmax(300px,420px) 1fr;gap:15px}.manual{display:flex;gap:8px}.manual .input{flex:1}.productCard{border:1px solid var(--line);border-radius:12px;padding:15px;background:#f8fafc;margin-top:12px}.productCode{font-size:22px;font-weight:950;color:#0b3153}.facts{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}.fact{background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px}.fact small{display:block;color:var(--muted);font-weight:800}.fact b{font-size:16px}.tableWrap{overflow:auto;border:1px solid var(--line);border-radius:12px}.table{width:100%;border-collapse:collapse;min-width:900px;background:#fff}.table th,.table td{padding:11px;border-bottom:1px solid #e6ebef;text-align:left}.table th{background:#f1f4f7;color:#506474;font-size:10px;text-transform:uppercase}.badge{display:inline-block;padding:5px 9px;border-radius:999px;font-size:11px;font-weight:900}.green{background:#e4f5ed;color:#167a58}.red{background:#fde8eb;color:#b92e3d}.amber{background:#fff2cf;color:#8a5a00}.rowActions{display:flex;gap:7px;flex-wrap:wrap}.discountBar{display:grid;grid-template-columns:1fr 140px auto;gap:8px;align-items:end}.loading{position:fixed;inset:0;background:#06111bd9;display:grid;place-items:center;z-index:3000}.spinner{width:44px;height:44px;border:4px solid #60798d;border-top-color:#2a9cff;border-radius:50%;animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}.toast{position:fixed;right:18px;bottom:18px;background:#173c5c;color:#fff;padding:13px 16px;border-radius:12px;z-index:4000;box-shadow:var(--shadow);max-width:380px}.modalBack{position:fixed;inset:0;background:#000a;display:grid;place-items:center;padding:18px;z-index:2500}.modal{width:min(540px,96vw);background:#fff;border-radius:16px;padding:22px;box-shadow:0 20px 60px #0005}.modal h3{margin-top:0}.mobileTop,.mobileNav{display:none}
@@ -29,6 +30,18 @@
 .repoTable{min-width:1040px}.repoTable th,.repoTable td{padding:11px 12px}.repoTable th:first-child{min-width:170px}
 .genOriginIntro{text-align:center;padding:8px 0 4px}.genOriginIntro h3{margin-bottom:5px}.originChoice{display:flex;flex-direction:column;gap:3px;background:#fff;border:1px solid var(--line)}.originChoice:hover{border-color:#83b8e4;background:#f5faff}.originChoice small{color:var(--muted);font-weight:700}
 .genHeader{display:flex;justify-content:space-between;align-items:center;gap:10px;position:sticky;top:-22px;background:#fff;z-index:5;padding:4px 0 10px}.genHeader h3{margin:0}.destTabs{display:flex;gap:7px;flex-wrap:wrap;margin:10px 0 12px;padding:10px;background:#f5f8fb;border:1px solid var(--line);border-radius:10px}
+
+
+.importGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:14px 0}
+.importMetric{background:#f7f9fb;border:1px solid var(--line);border-radius:10px;padding:13px}
+.importMetric small{display:block;color:var(--muted);font-weight:850;text-transform:uppercase;font-size:10px}
+.importMetric b{display:block;font-size:22px;margin-top:4px}
+.importStatus{margin-top:14px;padding:13px 14px;border-radius:10px;background:#f4f7fa;border:1px solid var(--line);white-space:pre-wrap}
+.importStatus.ok{background:#eaf7f0;border-color:#bfe4d0;color:#146846}
+.importStatus.bad{background:#fff0f1;border-color:#efc6cb;color:#9d2f3b}
+.importProgress{width:100%;height:14px;margin-top:14px}
+.importFile{display:none}
+@media(max-width:700px){.importGrid{grid-template-columns:1fr 1fr}}
 
 </style>
 </head>
@@ -73,10 +86,10 @@ async function cacheGet(k){const d=await db();return new Promise((res,rej)=>{con
 $('#loginForm').onsubmit=async e=>{e.preventDefault();$('#loginErr').classList.add('hidden');try{load();const j=await api('login',{usuario:$('#user').value.trim(),senha:$('#pass').value});S.token=j.token;localStorage.setItem('hs_promo_token',S.token);await boot()}catch(x){$('#loginErr').textContent=x.message;$('#loginErr').classList.remove('hidden')}finally{load(false)}};
 async function boot(){if(!S.basesHydrated)await hydrateLocalBases();const j=await api('bootstrap');S.user=j.user;S.data=j;$('#login').classList.add('hidden');$('#system').classList.remove('hidden');$('#mobileWho').textContent=S.user.perfil==='ADMIN'?'Léo':S.user.filialNome;renderNav();go('inicio');if(S.user.perfil==='FILIAL')syncBases().then(()=>{if(S.page==='inicio')renderInicio()}).catch(()=>{})}
 function logout(){S.token='';localStorage.removeItem('hs_promo_token');$('#user').value='';$('#pass').value='';location.reload()}
-function navItems(){return S.user.perfil==='ADMIN'?[['inicio','Início'],['transferencia','Transferência'],['historico','Histórico'],['usuarios','Usuários']]:[['inicio','Início'],['coleta','Bipar peças'],['lista','Minha lista']]}
+function navItems(){return S.user.perfil==='ADMIN'?[['inicio','Início'],['transferencia','Transferência'],['atualizarBanco','Atualizar Banco'],['historico','Histórico'],['usuarios','Usuários']]:[['inicio','Início'],['coleta','Bipar peças'],['lista','Minha lista']]}
 function renderNav(){let h=navItems().map(([p,n])=>`<button data-p="${p}" onclick="go('${p}')">${n}</button>`).join('')+`<button onclick="logout()">Sair</button>`;$('#nav').innerHTML=h;$('#mobileNav').innerHTML=h}
 function head(t,s=''){return `<div class="top"><div><h1>${esc(t)}</h1>${s?`<div class="muted">${esc(s)}</div>`:''}</div><span class="chip">${esc(S.user.perfil==='ADMIN'?'Léo • Admin':S.user.filialNome)}</span></div>`}
-function go(p){S.page=p;document.querySelectorAll('[data-p]').forEach(b=>b.classList.toggle('active',b.dataset.p===p));({inicio:renderInicio,coleta:renderColeta,lista:renderLista,analise:renderAnalise,historico:renderHistorico,filiais:renderFiliais,usuarios:renderUsuarios,transferencia:renderTransferencia}[p]||renderInicio)();scrollTo(0,0)}
+function go(p){S.page=p;document.querySelectorAll('[data-p]').forEach(b=>b.classList.toggle('active',b.dataset.p===p));({inicio:renderInicio,coleta:renderColeta,lista:renderLista,analise:renderAnalise,historico:renderHistorico,filiais:renderFiliais,usuarios:renderUsuarios,transferencia:renderTransferencia,atualizarBanco:renderAtualizarBanco}[p]||renderInicio)();scrollTo(0,0)}
 async function hydrateLocalBases(){
   try{for(const tipo of ['catalogo','bi','precos']){const local=await cacheGet('base_'+tipo);if(local&&local.dados)S[tipo]=local.dados}S.basesHydrated=true;return true}catch(e){S.basesHydrated=true;return false}
 }
@@ -103,7 +116,7 @@ async function syncBases(){
 }
 function statusLabel(s){return ({EM_COLETA:'Em coleta',AGUARDANDO_ANALISE:'Em análise',EM_ANALISE:'Em análise',FINALIZADA:'Finalizada',CANCELADA:'Cancelada',FECHADA:'Fechada'})[String(s||'')]||String(s||'').replaceAll('_',' ')}
 function coletaAberta(){return S.data?.promocao?.status==='EM_COLETA'}
-function renderInicio(){if(S.user.perfil==='ADMIN'){const fs=S.data.filiais||[],ativas=fs.filter(x=>x.status==='EM_COLETA').length,aguard=fs.filter(x=>['AGUARDANDO_ANALISE','EM_ANALISE'].includes(x.status)).length;$('#main').innerHTML=head('Painel de Promoções','Controle das filiais e análises. · v20 Transferência + Necessidade + Reposição')+`<div class="cards"><div class="card metric"><span>FILIAIS EM COLETA</span><strong>${ativas}</strong></div><div class="card metric"><span>AGUARDANDO ANÁLISE</span><strong>${aguard}</strong></div><div class="card metric"><span>FILIAIS</span><strong>${fs.length}</strong></div></div><div class="sectionTitle"><h2>Filiais</h2></div>${filiaisCards(fs)}`;return}const p=S.data.promocao,aberta=p?.status==='EM_COLETA';$('#main').innerHTML=head('Promoção — '+S.user.filialNome,aberta?'Bipe e confirme os itens que irão para análise.':'Sua lista foi enviada e está sendo analisada.')+`${!aberta?'<div class="readonlyNotice">Sua lista de promoção está em análise. Aguarde o Léo concluir a análise. Até lá você pode consultar sua lista, mas não incluir ou remover peças.</div>':''}<div class="cards" style="grid-template-columns:repeat(2,1fr)"><div class="card metric"><span>STATUS</span><strong class="statusText">${esc(statusLabel(p?.status||'FECHADA'))}</strong></div><div class="card metric"><span>ITENS NA LISTA</span><strong>${S.data.itens?.length||0}</strong></div></div>${aberta?'<button class="btn primary full" style="margin-top:15px" onclick="go(\'coleta\')">Bipar peças</button>':'<button class="btn full" style="margin-top:15px" onclick="go(\'lista\')">Consultar minha lista</button>'}`}
+function renderInicio(){if(S.user.perfil==='ADMIN'){const fs=S.data.filiais||[],ativas=fs.filter(x=>x.status==='EM_COLETA').length,aguard=fs.filter(x=>['AGUARDANDO_ANALISE','EM_ANALISE'].includes(x.status)).length;$('#main').innerHTML=head('Painel de Promoções','Controle das filiais e análises. · v25 Supabase + Transferência + Necessidade + Reposição')+`<div class="cards"><div class="card metric"><span>FILIAIS EM COLETA</span><strong>${ativas}</strong></div><div class="card metric"><span>AGUARDANDO ANÁLISE</span><strong>${aguard}</strong></div><div class="card metric"><span>FILIAIS</span><strong>${fs.length}</strong></div></div><div class="sectionTitle"><h2>Filiais</h2></div>${filiaisCards(fs)}`;return}const p=S.data.promocao,aberta=p?.status==='EM_COLETA';$('#main').innerHTML=head('Promoção — '+S.user.filialNome,aberta?'Bipe e confirme os itens que irão para análise.':'Sua lista foi enviada e está sendo analisada.')+`${!aberta?'<div class="readonlyNotice">Sua lista de promoção está em análise. Aguarde o Léo concluir a análise. Até lá você pode consultar sua lista, mas não incluir ou remover peças.</div>':''}<div class="cards" style="grid-template-columns:repeat(2,1fr)"><div class="card metric"><span>STATUS</span><strong class="statusText">${esc(statusLabel(p?.status||'FECHADA'))}</strong></div><div class="card metric"><span>ITENS NA LISTA</span><strong>${S.data.itens?.length||0}</strong></div></div>${aberta?'<button class="btn primary full" style="margin-top:15px" onclick="go(\'coleta\')">Bipar peças</button>':'<button class="btn full" style="margin-top:15px" onclick="go(\'lista\')">Consultar minha lista</button>'}`}
 function filiaisCards(fs){return `<div class="cards">${fs.map(f=>{const emAnalise=['AGUARDANDO_ANALISE','EM_ANALISE'].includes(f.status);return `<div class="card"><b>${esc(f.nome)}</b><p><span class="badge ${f.status==='EM_COLETA'?'green':emAnalise?'amber':'red'}">${esc(statusLabel(f.status))}</span></p><div class="rowActions">${['FECHADA','FINALIZADA','CANCELADA'].includes(f.status)?`<button class="btn good" onclick="iniciarPromo('${f.codigo}')">Iniciar promoção</button>`:''}${f.status==='EM_COLETA'?`<button class="btn danger" onclick="fecharPromo('${f.codigo}')">Bloquear coleta</button>`:''}${emAnalise?`<button class="btn primary" onclick="abrirAnalise('${f.codigo}')">Analisar</button><button class="btn danger" onclick="cancelarPromo('${f.codigo}')">Cancelar</button>`:''}</div></div>`}).join('')}</div>`}
 async function renderColeta(){if(S.user.perfil==='ADMIN')return go('inicio');if(!coletaAberta()){go('inicio');toast('Sua lista de promoção já está em análise. Aguarde a conclusão.');return}if(!Object.keys(S.catalogo).length){$('#main').innerHTML=head('Bipar peças','')+`<div class="card"><div style="display:flex;align-items:center;gap:12px"><div class="spinner" style="width:28px;height:28px;border-width:3px"></div><b>Carregando...</b></div></div>`;const ok=await syncBases();if(!ok||!Object.keys(S.catalogo).length)return;if(S.page!=='coleta')return;}$('#main').innerHTML=head('Bipar peças','Leitura por câmera ou inclusão manual.')+`<div class="scanGrid"><div class="card"><h3>Adicionar peça</h3><button class="btn good full" onclick="openScanner()">📷 Escanear EAN</button><div class="field"><label>Inclusão manual</label><div class="manual"><input id="manualEAN" class="input" inputmode="numeric" maxlength="20" placeholder="Digite ou cole o EAN"><button class="btn primary" onclick="manualEAN()">Adicionar</button></div></div><div id="candidate"></div></div><div class="card"><h3>Lista atual</h3><div id="quickList"></div></div></div>`;$('#manualEAN').onkeydown=e=>{if(e.key==='Enter')manualEAN()};renderQuick()}
 function normalize(v){return String(v??'').trim().toUpperCase()}
@@ -288,6 +301,102 @@ function renderGeradorItens(){if(!S.transferGenOrigin)return renderGeradorOrigen
 function alterarItemTransferencia(id,tipo,valor){const r=(S.transferGenRows||[]).find(x=>x._id===id);if(!r)return;if(tipo==='sel')r._sel=!!valor;else r._qtd=Math.max(1,Math.min(Number(r.excedente||999999),Math.floor(Number(valor)||1)));renderGeradorItens()}
 function fecharGeradorTransferencia(){S.transferGenOrigin='';S.transferGenDest='TODAS';S.transferGenRows=[];$('#modalBox').classList.remove('transferGenModal');closeModal()}
 function gerarPdfTransferencia(){const itens=genVisibleRows().filter(r=>r._sel&&Number(r._qtd)>0);if(!itens.length)return toast('Selecione pelo menos um item.');if(!window.jspdf||!window.jspdf.jsPDF)return toast('Não foi possível carregar o gerador de PDF.');const {jsPDF}=window.jspdf,doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'}),navy=[8,47,81],light=[242,246,249],text=[23,35,51],now=new Date(),data=now.toLocaleDateString('pt-BR'),hora=now.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}),usuario=S.user?.nome||S.user?.usuario||'Léo',origem=S.transferGenOrigin||'ORIGEM';doc.setTextColor(...navy);doc.setFont('helvetica','bold');doc.setFontSize(29);doc.text('HS',16,20);doc.setFontSize(7);doc.setCharSpace(2);doc.text('CENTRAL',16,25);doc.setCharSpace(0);doc.setDrawColor(...navy);doc.line(43,10,43,29);doc.setFontSize(18);doc.text('TRANSFERÊNCIA ENTRE LOJAS',49,24);doc.setFillColor(246,248,250);doc.roundedRect(145,9,49,22,2,2,'F');doc.setFontSize(7);doc.setTextColor(80,100,116);doc.text('DATA:',149,15);doc.text('HORA:',149,21);doc.text('USUÁRIO:',149,27);doc.setTextColor(...text);doc.text(data,176,15);doc.text(hora,176,21);doc.text(String(usuario),176,27);doc.setFillColor(...navy);doc.roundedRect(14,37,182,13,1.5,1.5,'F');doc.setTextColor(255,255,255);doc.setFontSize(15);doc.text('TRANSFERÊNCIA DE MERCADORIAS',20,46);doc.setFillColor(...light);doc.roundedRect(14,54,182,17,1.5,1.5,'F');doc.setTextColor(...navy);doc.setFontSize(14);doc.text(String(origem),20,66);const body=itens.map((r,i)=>[String(i+1),transferSku(r),String(r.colecaoCod||'-'),String(r.origemEstoque),String(r.destino),String(r._qtd)]);doc.autoTable({startY:76,head:[['#','REF + COR + TAM','COLEÇÃO','ESTOQUE','DESTINO','QTD.']],body,theme:'grid',styles:{fontSize:8,cellPadding:3,textColor:text},headStyles:{fillColor:navy,textColor:255},columnStyles:{0:{cellWidth:8},1:{cellWidth:48,fontStyle:'bold'},2:{cellWidth:25},3:{cellWidth:24,halign:'center'},4:{cellWidth:47},5:{cellWidth:25,halign:'center',fontStyle:'bold'}}});let y=doc.lastAutoTable.finalY+7,total=itens.reduce((a,r)=>a+Number(r._qtd||0),0);doc.setFillColor(...navy);doc.roundedRect(128,y,68,11,1.5,1.5,'F');doc.setTextColor(255,255,255);doc.text('TOTAL DE PEÇAS: '+total,133,y+7);y+=18;if(y>235){doc.addPage();y=18}doc.setFillColor(...light);doc.roundedRect(14,y,182,31,2,2,'F');doc.setTextColor(...navy);doc.text('OBSERVAÇÕES',20,y+7);doc.setTextColor(55,73,89);doc.text('1. Conferir o estoque físico antes da separação.',20,y+14);doc.text('2. Separar e identificar as mercadorias por filial destino.',20,y+20);doc.text('3. Em caso de dúvida, entrar em contato com o escritório.',20,y+26);doc.setTextColor(...navy);doc.setFont('helvetica','bold');doc.setFontSize(18);doc.text('HS',16,285);doc.setFontSize(8);doc.text('CENTRAL',29,285);doc.save(`Transferencia_${String(origem).replace(/[^A-Za-z0-9_-]+/g,'_')}_${data.replaceAll('/','-')}.pdf`);toast('PDF gerado. A análise permanece inalterada.')}
+
+
+const IMPORT_FILIAIS={
+ 'HERING AV G VARGAS ITAUNA':{codigo:'1848',nome:'ITAUNA'},
+ 'HERING AV GETULIO VARGAS':{codigo:'1848',nome:'ITAUNA'},
+ 'HERING A OLIMPIO D MORAIS':{codigo:'1849',nome:'DIVINA'},
+ 'HS DIVINOPOLIS':{codigo:'1849',nome:'DIVINA'},
+ 'HS SHOPPING UBERLANDIA':{codigo:'761',nome:'MODA'},
+ 'HS UBERLANDIA':{codigo:'488',nome:'FLORIANO'},
+ 'RUA ARTUR MACHADO':{codigo:'293',nome:'ARTUR'},
+ 'RUA RIO DE JANEIRO - PCA':{codigo:'287',nome:'JOTA'},
+ 'SHOPPING CENTER UBERABA':{codigo:'288',nome:'PONTO'}
+};
+const IMPORT_MESES={JAN:1,FEV:2,MAR:3,ABR:4,MAI:5,JUN:6,JUL:7,AGO:8,SET:9,OUT:10,NOV:11,DEZ:12};
+let IMPORT_RESULT=null,IMPORT_FILE=null;
+function impNorm(v){return String(v??'').trim().toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ')}
+function impRef(v){const s=impNorm(v);return /^\d+$/.test(s)?s.padStart(4,'0'):s}
+function impNum(v){if(typeof v==='number')return Number.isFinite(v)?v:0;let s=String(v??'').trim().replace(/\s/g,'');if(s.includes(',')&&s.includes('.'))s=s.replace(/\./g,'').replace(',','.');else s=s.replace(',','.');const n=Number(s.replace(/[^\d.-]/g,''));return Number.isFinite(n)?n:0}
+function impMes(v){const n=Number(v);if(n>=1&&n<=12)return n;return IMPORT_MESES[impNorm(v).slice(0,3)]||0}
+function impIso(d,m,a){d=Number(d);m=impMes(m);a=Number(a);if(!d||!m||!a)return '';const x=new Date(Date.UTC(a,m-1,d));if(x.getUTCFullYear()!=a||x.getUTCMonth()!=m-1||x.getUTCDate()!=d)return '';return `${a}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`}
+function impStatus(txt,cls=''){const el=$('#impStatus');if(el){el.className='importStatus '+cls;el.textContent=txt}}
+function renderAtualizarBanco(){
+ if(S.user.perfil!=='ADMIN')return go('inicio');
+ IMPORT_RESULT=null;IMPORT_FILE=null;
+ $('#main').innerHTML=head('Atualizar Banco','Atualiza a base única usada por Promoção e Transferência.')+`
+ <div class="card">
+   <h3 style="margin-top:0">Importar relatório</h3>
+   <div class="muted">Selecione o relatório Excel completo. Antes de publicar, o sistema valida as 7 filiais e consolida REF + COR + TAMANHO.</div>
+   <div class="rowActions" style="margin-top:14px">
+     <label class="btn primary">Selecionar Excel<input id="impFile" class="importFile" type="file" accept=".xlsx,.xls"></label>
+     <button id="impProcess" class="btn" disabled onclick="processarImportacao()">Processar relatório</button>
+     <button id="impSend" class="btn good" disabled onclick="enviarImportacao()">Atualizar banco</button>
+   </div>
+   <div id="impName" class="muted" style="margin-top:10px">Nenhum arquivo selecionado.</div>
+   <div class="importGrid">
+     <div class="importMetric"><small>Linhas válidas</small><b id="impLinhas">—</b></div>
+     <div class="importMetric"><small>Filiais</small><b id="impFiliais">—</b></div>
+     <div class="importMetric"><small>SKUs</small><b id="impSkus">—</b></div>
+     <div class="importMetric"><small>Histórico mensal</small><b id="impHist">—</b></div>
+   </div>
+   <progress id="impProg" class="importProgress" max="100" value="0"></progress>
+   <div id="impStatus" class="importStatus">Aguardando arquivo.</div>
+ </div>`;
+ $('#impFile').onchange=e=>{IMPORT_FILE=e.target.files[0]||null;IMPORT_RESULT=null;$('#impProcess').disabled=!IMPORT_FILE;$('#impSend').disabled=true;$('#impName').textContent=IMPORT_FILE?IMPORT_FILE.name:'Nenhum arquivo selecionado.';impStatus(IMPORT_FILE?'Arquivo pronto para processamento.':'Aguardando arquivo.');};
+}
+async function processarImportacao(){
+ try{
+  if(!IMPORT_FILE)return;
+  $('#impProcess').disabled=true;$('#impSend').disabled=true;$('#impProg').value=3;impStatus('Lendo o Excel...');
+  const wb=XLSX.read(await IMPORT_FILE.arrayBuffer(),{type:'array'}),ws=wb.Sheets[wb.SheetNames[0]];
+  const rows=XLSX.utils.sheet_to_json(ws,{defval:null,raw:true});
+  const required=['Loja','Dia','Mês','Ano','Coleção','Coleção Cód','Cor','Pirâmide','Produto Cód','Tamanho','Peças - Líquido','Estoque Físico','Estoque em Trânsito'];
+  if(!rows.length)throw Error('O relatório está vazio.');
+  const missing=required.filter(k=>!(k in rows[0]));if(missing.length)throw Error('Colunas não encontradas: '+missing.join(', '));
+  const produtos=new Map(),vendas=new Map(),desconhecidas=new Set(),filiais=new Set();let validas=0;
+  for(let i=0;i<rows.length;i++){
+    const r=rows[i],lojaRaw=impNorm(r['Loja']);if(!lojaRaw)continue;
+    const f=IMPORT_FILIAIS[lojaRaw];if(!f){desconhecidas.add(lojaRaw);continue}
+    const rf=impRef(r['Produto Cód']),cor=impNorm(r['Cor']),tam=impNorm(r['Tamanho']);if(!rf||!cor||!tam)continue;
+    validas++;filiais.add(f.codigo);const pk=[f.codigo,rf,cor,tam].join('|');
+    let p=produtos.get(pk);if(!p){p={filial_codigo:f.codigo,loja:f.nome,ref:rf,cor,tamanho:tam,colecao:'',colecao_codigo:'',piramide:'',estoque_fisico:0,estoque_transito:0,ultima_venda:null};produtos.set(pk,p)}
+    if(r['Coleção']!=null&&String(r['Coleção']).trim())p.colecao=String(r['Coleção']).trim();
+    if(r['Coleção Cód']!=null&&String(r['Coleção Cód']).trim())p.colecao_codigo=String(r['Coleção Cód']).trim();
+    if(r['Pirâmide']!=null&&String(r['Pirâmide']).trim())p.piramide=String(r['Pirâmide']).trim();
+    p.estoque_fisico+=impNum(r['Estoque Físico']);p.estoque_transito+=impNum(r['Estoque em Trânsito']);
+    const venda=impNum(r['Peças - Líquido']),dt=impIso(r['Dia'],r['Mês'],r['Ano']);
+    if(venda&&dt){
+      if(!p.ultima_venda||dt>p.ultima_venda)p.ultima_venda=dt;
+      const a=Number(r['Ano']),m=impMes(r['Mês']),vk=[f.codigo,rf,cor,tam,a,m].join('|');
+      let v=vendas.get(vk);if(!v){v={filial_codigo:f.codigo,loja:f.nome,ref:rf,cor,tamanho:tam,ano:a,mes:m,pecas_liquido:0};vendas.set(vk,v)}
+      v.pecas_liquido+=venda;
+    }
+    if(i%12000===0){$('#impProg').value=Math.min(68,3+(i/rows.length)*65);await new Promise(requestAnimationFrame)}
+  }
+  if(desconhecidas.size)throw Error('Lojas não reconhecidas: '+[...desconhecidas].join(' | '));
+  const esperadas=['293','488','287','761','288','1849','1848'],faltam=esperadas.filter(x=>!filiais.has(x));
+  if(faltam.length)throw Error('Relatório incompleto. Faltam filiais: '+faltam.join(', '));
+  IMPORT_RESULT={produtos:[...produtos.values()],vendas:[...vendas.values()],filiais:[...filiais],totalLinhas:validas,nomeArquivo:IMPORT_FILE.name};
+  $('#impLinhas').textContent=validas.toLocaleString('pt-BR');$('#impFiliais').textContent=filiais.size+'/7';$('#impSkus').textContent=IMPORT_RESULT.produtos.length.toLocaleString('pt-BR');$('#impHist').textContent=IMPORT_RESULT.vendas.length.toLocaleString('pt-BR');$('#impProg').value=100;$('#impSend').disabled=false;
+  impStatus('Validação concluída. A base oficial ainda não foi alterada.','ok');
+ }catch(e){$('#impProg').value=0;impStatus(e.message,'bad')}finally{$('#impProcess').disabled=!IMPORT_FILE}
+}
+async function enviarImportacao(){
+ try{
+  if(!IMPORT_RESULT)return;
+  if(!confirm('Publicar esta nova base para Promoção e Transferência?'))return;
+  $('#impSend').disabled=true;$('#impProcess').disabled=true;$('#impProg').value=1;impStatus('Criando importação segura...');
+  const ini=await api('supabaseImportStart',{meta:{nomeArquivo:IMPORT_RESULT.nomeArquivo,totalLinhas:IMPORT_RESULT.totalLinhas,totalFiliais:IMPORT_RESULT.filiais.length,totalSkus:IMPORT_RESULT.produtos.length,filiais:IMPORT_RESULT.filiais}});
+  const id=ini.importacaoId,B=250,total=IMPORT_RESULT.produtos.length+IMPORT_RESULT.vendas.length;let feito=0;
+  for(const [tipo,arr] of [['produtos',IMPORT_RESULT.produtos],['vendas',IMPORT_RESULT.vendas]]){
+    for(let i=0;i<arr.length;i+=B){const lote=arr.slice(i,i+B);await api('supabaseImportBatch',{payload:{importacaoId:id,tipo,rows:lote}});feito+=lote.length;$('#impProg').value=Math.max(2,Math.round(feito/total*95));impStatus(`Enviando ${feito.toLocaleString('pt-BR')} de ${total.toLocaleString('pt-BR')} registros...`)}
+  }
+  impStatus('Validando e publicando a nova base...');
+  await api('supabaseImportFinish',{importacaoId:id});$('#impProg').value=100;impStatus('Banco atualizado com sucesso. Promoção e Transferência já têm a nova base disponível.','ok');toast('Banco atualizado com sucesso.');
+ }catch(e){impStatus(e.message,'bad')}finally{$('#impProcess').disabled=!IMPORT_FILE;$('#impSend').disabled=!IMPORT_RESULT}
+}
 
 function renderUsuarios(){const fs=S.data.filiais||[];$('#main').innerHTML=head('Usuários e senhas','Léo pode alterar a senha de cada filial.')+`<div class="card">${fs.map(f=>`<div class="userRow"><div><b>${esc(f.nome)}</b><div class="muted">Usuário: ${esc(f.usuario)}</div></div><div><button class="btn primary" onclick="changePass('${f.codigo}','${esc(f.nome)}','${esc(f.usuario)}')">Alterar senha</button></div></div>`).join('')}</div>`}
 function changePass(c,nome,usuario){$('#modalBox').innerHTML=`<h3>Alterar senha — ${esc(nome)}</h3><div class="muted" style="margin-bottom:12px">Usuário: ${esc(usuario)}</div><div class="field"><label>Nova senha</label><input id="newPass" class="input" type="password" autocomplete="new-password"></div><div class="field"><label>Confirmar nova senha</label><input id="newPass2" class="input" type="password" autocomplete="new-password"></div><div class="rowActions"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn primary" onclick="confirmPass('${c}','${esc(usuario)}')">Salvar nova senha</button></div>`;$('#modal').classList.remove('hidden')}
