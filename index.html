@@ -43,6 +43,8 @@
 .importFile{display:none}
 @media(max-width:700px){.importGrid{grid-template-columns:1fr 1fr}}
 
+
+.syncCard{padding:22px}.syncTitle{font-weight:800;font-size:16px;margin-bottom:8px}.syncPct{font-size:28px;font-weight:900;margin:8px 0}.syncBar{height:12px;background:#e5eaf0;border-radius:999px;overflow:hidden}.syncBar>i{display:block;height:100%;background:#1976d2;width:0;transition:width .18s}.syncDetail{margin-top:9px;color:#667085;font-size:13px}
 </style>
 </head>
 <body>
@@ -54,7 +56,7 @@
 <script>
 const API_URL='https://script.google.com/macros/s/AKfycbyu4WrW945rJlJ9dAu8vhyJAFsdPZchU-eCNB5ZVe5nCODEw1kb3G_vTWPX9UCooF51sw/exec';
 const DB_NAME='hs_promocao_v1',DB_STORE='cache';
-const S={token:localStorage.getItem('hs_promo_token')||'',user:null,data:null,page:'inicio',catalogo:{},bi:{},precos:{},pending:null,scanner:null,scannerLocked:false,baseSyncPromise:null,basesHydrated:false,pendingWrites:0,analysisCache:{},transfer:null,transferPeriod:6,transferCoverage:1,transferProjection:2,transferPyramids:new Set(),transferColumnFilters:{},transferFilterDraft:{},transferFilterOpen:'',transferSort:{key:'',dir:0},transferGenOrigin:'',transferGenRows:[],transferMode:'parado',transferGenDest:'TODAS',repoColumnFilters:{},repoFilterDraft:{},repoFilterOpen:'',repoSort:{key:'reposicao',dir:-1},transferLoading:false,transferCompact:null};
+const S={token:localStorage.getItem('hs_promo_token')||'',user:null,data:null,page:'inicio',catalogo:{},bi:{},precos:{},pending:null,scanner:null,scannerLocked:false,baseSyncPromise:null,basesHydrated:false,pendingWrites:0,analysisCache:{},transfer:null,transferPeriod:6,transferCoverage:1,transferProjection:2,transferPyramids:new Set(),transferColumnFilters:{},transferFilterDraft:{},transferFilterOpen:'',transferSort:{key:'',dir:0},transferGenOrigin:'',transferGenRows:[],transferMode:'parado',transferGenDest:'TODAS',repoColumnFilters:{},repoFilterDraft:{},repoFilterOpen:'',repoSort:{key:'reposicao',dir:-1},transferLoading:false,transferCompact:null,promoReady:false,promoSyncPromise:null};
 const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
 function load(v=true){$('#loading').classList.toggle('hidden',!v)} function toast(t){let e=$('#toast');e.textContent=t;e.classList.remove('hidden');setTimeout(()=>e.classList.add('hidden'),3000)}
 async function apiLong(api,p={}){
@@ -84,7 +86,7 @@ function db(){return new Promise((res,rej)=>{const q=indexedDB.open(DB_NAME,1);q
 async function cacheSet(k,v){const d=await db();return new Promise((res,rej)=>{const tx=d.transaction(DB_STORE,'readwrite');tx.objectStore(DB_STORE).put(v,k);tx.oncomplete=res;tx.onerror=()=>rej(tx.error)})}
 async function cacheGet(k){const d=await db();return new Promise((res,rej)=>{const q=d.transaction(DB_STORE).objectStore(DB_STORE).get(k);q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error)})}
 $('#loginForm').onsubmit=async e=>{e.preventDefault();$('#loginErr').classList.add('hidden');try{load();const j=await api('login',{usuario:$('#user').value.trim(),senha:$('#pass').value});S.token=j.token;localStorage.setItem('hs_promo_token',S.token);await boot()}catch(x){$('#loginErr').textContent=x.message;$('#loginErr').classList.remove('hidden')}finally{load(false)}};
-async function boot(){if(!S.basesHydrated)await hydrateLocalBases();const j=await api('bootstrap');S.user=j.user;S.data=j;$('#login').classList.add('hidden');$('#system').classList.remove('hidden');$('#mobileWho').textContent=S.user.perfil==='ADMIN'?'Léo':S.user.filialNome;renderNav();go('inicio');if(S.user.perfil==='FILIAL')syncBases().then(()=>{if(S.page==='inicio')renderInicio()}).catch(()=>{})}
+async function boot(){if(!S.basesHydrated)await hydrateLocalBases();const j=await api('bootstrap');S.user=j.user;S.data=j;$('#login').classList.add('hidden');$('#system').classList.remove('hidden');$('#mobileWho').textContent=S.user.perfil==='ADMIN'?'Léo':S.user.filialNome;renderNav();go('inicio');if(S.user.perfil==='FILIAL')preparePromoBase().then(()=>{if(S.page==='inicio')renderInicio()}).catch(()=>{})}
 function logout(){S.token='';localStorage.removeItem('hs_promo_token');$('#user').value='';$('#pass').value='';location.reload()}
 function navItems(){return S.user.perfil==='ADMIN'?[['inicio','Início'],['transferencia','Transferência'],['atualizarBanco','Atualizar Banco'],['historico','Histórico'],['usuarios','Usuários']]:[['inicio','Início'],['coleta','Bipar peças'],['lista','Minha lista']]}
 function renderNav(){let h=navItems().map(([p,n])=>`<button data-p="${p}" onclick="go('${p}')">${n}</button>`).join('')+`<button onclick="logout()">Sair</button>`;$('#nav').innerHTML=h;$('#mobileNav').innerHTML=h}
@@ -116,9 +118,57 @@ async function syncBases(){
 }
 function statusLabel(s){return ({EM_COLETA:'Em coleta',AGUARDANDO_ANALISE:'Em análise',EM_ANALISE:'Em análise',FINALIZADA:'Finalizada',CANCELADA:'Cancelada',FECHADA:'Fechada'})[String(s||'')]||String(s||'').replaceAll('_',' ')}
 function coletaAberta(){return S.data?.promocao?.status==='EM_COLETA'}
-function renderInicio(){if(S.user.perfil==='ADMIN'){const fs=S.data.filiais||[],ativas=fs.filter(x=>x.status==='EM_COLETA').length,aguard=fs.filter(x=>['AGUARDANDO_ANALISE','EM_ANALISE'].includes(x.status)).length;$('#main').innerHTML=head('Painel de Promoções','Controle das filiais e análises. · v30 Cache local + Projeções + Saúde por Pirâmide')+`<div class="cards"><div class="card metric"><span>FILIAIS EM COLETA</span><strong>${ativas}</strong></div><div class="card metric"><span>AGUARDANDO ANÁLISE</span><strong>${aguard}</strong></div><div class="card metric"><span>FILIAIS</span><strong>${fs.length}</strong></div></div><div class="sectionTitle"><h2>Filiais</h2></div>${filiaisCards(fs)}`;return}const p=S.data.promocao,aberta=p?.status==='EM_COLETA';$('#main').innerHTML=head('Promoção — '+S.user.filialNome,aberta?'Bipe e confirme os itens que irão para análise.':'Sua lista foi enviada e está sendo analisada.')+`${!aberta?'<div class="readonlyNotice">Sua lista de promoção está em análise. Aguarde o Léo concluir a análise. Até lá você pode consultar sua lista, mas não incluir ou remover peças.</div>':''}<div class="cards" style="grid-template-columns:repeat(2,1fr)"><div class="card metric"><span>STATUS</span><strong class="statusText">${esc(statusLabel(p?.status||'FECHADA'))}</strong></div><div class="card metric"><span>ITENS NA LISTA</span><strong>${S.data.itens?.length||0}</strong></div></div>${aberta?'<button class="btn primary full" style="margin-top:15px" onclick="go(\'coleta\')">Bipar peças</button>':'<button class="btn full" style="margin-top:15px" onclick="go(\'lista\')">Consultar minha lista</button>'}`}
+function renderInicio(){if(S.user.perfil==='ADMIN'){const fs=S.data.filiais||[],ativas=fs.filter(x=>x.status==='EM_COLETA').length,aguard=fs.filter(x=>['AGUARDANDO_ANALISE','EM_ANALISE'].includes(x.status)).length;$('#main').innerHTML=head('Painel de Promoções','Controle das filiais e análises. · v31 Cache local em lotes + Promoção local')+`<div class="cards"><div class="card metric"><span>FILIAIS EM COLETA</span><strong>${ativas}</strong></div><div class="card metric"><span>AGUARDANDO ANÁLISE</span><strong>${aguard}</strong></div><div class="card metric"><span>FILIAIS</span><strong>${fs.length}</strong></div></div><div class="sectionTitle"><h2>Filiais</h2></div>${filiaisCards(fs)}`;return}const p=S.data.promocao,aberta=p?.status==='EM_COLETA';$('#main').innerHTML=head('Promoção — '+S.user.filialNome,aberta?'Bipe e confirme os itens que irão para análise.':'Sua lista foi enviada e está sendo analisada.')+`${!aberta?'<div class="readonlyNotice">Sua lista de promoção está em análise. Aguarde o Léo concluir a análise. Até lá você pode consultar sua lista, mas não incluir ou remover peças.</div>':''}<div class="cards" style="grid-template-columns:repeat(2,1fr)"><div class="card metric"><span>STATUS</span><strong class="statusText">${esc(statusLabel(p?.status||'FECHADA'))}</strong></div><div class="card metric"><span>ITENS NA LISTA</span><strong>${S.data.itens?.length||0}</strong></div></div>${aberta?'<button class="btn primary full" style="margin-top:15px" onclick="go(\'coleta\')">Bipar peças</button>':'<button class="btn full" style="margin-top:15px" onclick="go(\'lista\')">Consultar minha lista</button>'}`}
 function filiaisCards(fs){return `<div class="cards">${fs.map(f=>{const emAnalise=['AGUARDANDO_ANALISE','EM_ANALISE'].includes(f.status);return `<div class="card"><b>${esc(f.nome)}</b><p><span class="badge ${f.status==='EM_COLETA'?'green':emAnalise?'amber':'red'}">${esc(statusLabel(f.status))}</span></p><div class="rowActions">${['FECHADA','FINALIZADA','CANCELADA'].includes(f.status)?`<button class="btn good" onclick="iniciarPromo('${f.codigo}')">Iniciar promoção</button>`:''}${f.status==='EM_COLETA'?`<button class="btn danger" onclick="fecharPromo('${f.codigo}')">Bloquear coleta</button>`:''}${emAnalise?`<button class="btn primary" onclick="abrirAnalise('${f.codigo}')">Analisar</button><button class="btn danger" onclick="cancelarPromo('${f.codigo}')">Cancelar</button>`:''}</div></div>`}).join('')}</div>`}
-async function renderColeta(){if(S.user.perfil==='ADMIN')return go('inicio');if(!coletaAberta()){go('inicio');toast('Sua lista de promoção já está em análise. Aguarde a conclusão.');return}if(!Object.keys(S.catalogo).length){$('#main').innerHTML=head('Bipar peças','')+`<div class="card"><div style="display:flex;align-items:center;gap:12px"><div class="spinner" style="width:28px;height:28px;border-width:3px"></div><b>Carregando...</b></div></div>`;const ok=await syncBases();if(!ok||!Object.keys(S.catalogo).length)return;if(S.page!=='coleta')return;}$('#main').innerHTML=head('Bipar peças','Leitura por câmera ou inclusão manual.')+`<div class="scanGrid"><div class="card"><h3>Adicionar peça</h3><button class="btn good full" onclick="openScanner()">📷 Escanear EAN</button><div class="field"><label>Inclusão manual</label><div class="manual"><input id="manualEAN" class="input" inputmode="numeric" maxlength="20" placeholder="Digite ou cole o EAN"><button class="btn primary" onclick="manualEAN()">Adicionar</button></div></div><div id="candidate"></div></div><div class="card"><h3>Lista atual</h3><div id="quickList"></div></div></div>`;$('#manualEAN').onkeydown=e=>{if(e.key==='Enter')manualEAN()};renderQuick()}
+function syncView(title,pct,detail){
+  $('#main').innerHTML=head(title,'Preparando a base local para leitura imediata.')+
+  `<div class="card syncCard"><div class="syncTitle">Sincronizando dados</div><div class="syncPct">${Math.max(0,Math.min(100,Math.floor(pct)))}%</div><div class="syncBar"><i style="width:${Math.max(0,Math.min(100,pct))}%"></i></div><div class="syncDetail">${esc(detail||'')}</div></div>`;
+}
+async function preparePromoBase(){
+  if(S.promoReady)return true;
+  if(S.promoSyncPromise)return S.promoSyncPromise;
+  S.promoSyncPromise=(async()=>{
+    try{
+      syncView('Promoção — '+S.user.filialNome,2,'Verificando a base da filial...');
+      const info=await api('promoBaseInfo');
+      const cacheKey='promo_filial_'+S.user.filialCodigo;
+      const cached=await cacheGet(cacheKey);
+      const prices=await cacheGet('promo_precos');
+      const catalog=await cacheGet('promo_catalogo_'+S.user.filialCodigo);
+      if(cached&&cached.versao===info.versao&&cached.bi&&catalog?.dados&&prices?.dados){
+        S.bi=cached.bi;S.catalogo=catalog.dados;S.precos=prices.dados;S.promoReady=true;return true;
+      }
+      syncView('Promoção — '+S.user.filialNome,8,'Baixando EANs da filial...');
+      const cj=await apiLong('promoCatalogo');S.catalogo=cj.dados||{};
+      await cacheSet('promo_catalogo_'+S.user.filialCodigo,{dados:S.catalogo});
+      syncView('Promoção — '+S.user.filialNome,18,'Baixando preços da aba Leonardo...');
+      const pj=await apiLong('promoPrecos');S.precos=pj.dados||{};
+      await cacheSet('promo_precos',{versao:pj.versao||'',dados:S.precos});
+      const total=Math.max(0,Number(info.total||0)),limit=2000,bi={};
+      let done=0;
+      while(done<total){
+        const j=await apiLong('promoEstoqueChunk',{offset:done,limit});
+        const rows=j.rows||[];
+        rows.forEach(r=>{
+          const ref=normalize(r.ref),cor=normalize(r.cor),tam=normalize(r.tamanho),ultima=String(r.ultima_venda||'');
+          const k=biKey(ref,cor,tam);
+          bi[k]={estoque:Number(r.estoque_fisico||0),piramide:String(r.piramide||''),dataUltima:ultima?ultima.slice(8,10)+'/'+ultima.slice(5,7)+'/'+ultima.slice(0,4):'',emTransito:Number(r.estoque_transito||0)};
+          bi[latestKey(ref,cor,tam)]={data:bi[k].dataUltima,filial:S.user.filialNome,filialCodigo:S.user.filialCodigo,estoque:bi[k].estoque};
+        });
+        done+=rows.length;
+        const pct=total?18+(done/total)*80:98;
+        syncView('Promoção — '+S.user.filialNome,pct,`Estoque da filial: ${Math.min(done,total).toLocaleString('pt-BR')} de ${total.toLocaleString('pt-BR')} produtos`);
+        if(!rows.length)break;
+      }
+      S.bi=bi;await cacheSet(cacheKey,{versao:info.versao,bi});
+      S.promoReady=true;syncView('Promoção — '+S.user.filialNome,100,'Base pronta. Os bipes agora são consultados localmente.');
+      return true;
+    }catch(e){toast('Não foi possível preparar a base: '+e.message);return false}
+    finally{S.promoSyncPromise=null}
+  })();
+  return S.promoSyncPromise;
+}
+async function renderColeta(){if(S.user.perfil==='ADMIN')return go('inicio');if(!coletaAberta()){go('inicio');toast('Sua lista de promoção já está em análise. Aguarde a conclusão.');return}if(!S.promoReady){await preparePromoBase();if(!S.promoReady)return;if(S.page!=='coleta')return;}$('#main').innerHTML=head('Bipar peças','Leitura por câmera ou inclusão manual.')+`<div class="scanGrid"><div class="card"><h3>Adicionar peça</h3><button class="btn good full" onclick="openScanner()">📷 Escanear EAN</button><div class="field"><label>Inclusão manual</label><div class="manual"><input id="manualEAN" class="input" inputmode="numeric" maxlength="20" placeholder="Digite ou cole o EAN"><button class="btn primary" onclick="manualEAN()">Adicionar</button></div></div><div id="candidate"></div></div><div class="card"><h3>Lista atual</h3><div id="quickList"></div></div></div>`;$('#manualEAN').onkeydown=e=>{if(e.key==='Enter')manualEAN()};renderQuick()}
 function normalize(v){return String(v??'').trim().toUpperCase()}
 function displayRef(v){const s=String(v??'').trim();return /^\d+$/.test(s)?s.padStart(4,'0'):s}
 function latestKey(ref,cor,tam){return ['__ULTIMA__',normalize(ref),normalize(cor),normalize(tam)].join('|')}
@@ -223,28 +273,42 @@ async function renderTransferencia(){
   renderTransferenciaTela();
 }
 function idbOpenTransfer(){
-  return new Promise((resolve,reject)=>{
-    const q=indexedDB.open('HS_TRANSFER_CACHE',1);
-    q.onupgradeneeded=()=>{const db=q.result;if(!db.objectStoreNames.contains('base'))db.createObjectStore('base')};
-    q.onsuccess=()=>resolve(q.result);q.onerror=()=>reject(q.error);
-  });
+  return new Promise((resolve,reject)=>{const q=indexedDB.open('HS_TRANSFER_CACHE',1);q.onupgradeneeded=()=>{const db=q.result;if(!db.objectStoreNames.contains('base'))db.createObjectStore('base')};q.onsuccess=()=>resolve(q.result);q.onerror=()=>reject(q.error)});
 }
-async function idbGetTransfer(){
-  try{const db=await idbOpenTransfer();return await new Promise((res,rej)=>{const q=db.transaction('base','readonly').objectStore('base').get('compacta');q.onsuccess=()=>res(q.result||null);q.onerror=()=>rej(q.error)})}catch(_){return null}
-}
-async function idbPutTransfer(v){
-  try{const db=await idbOpenTransfer();await new Promise((res,rej)=>{const q=db.transaction('base','readwrite').objectStore('base').put(v,'compacta');q.onsuccess=()=>res();q.onerror=()=>rej(q.error)})}catch(_){}
+async function idbGetTransfer(){try{const db=await idbOpenTransfer();return await new Promise((res,rej)=>{const q=db.transaction('base','readonly').objectStore('base').get('compacta');q.onsuccess=()=>res(q.result||null);q.onerror=()=>rej(q.error)})}catch(_){return null}}
+async function idbPutTransfer(v){try{const db=await idbOpenTransfer();await new Promise((res,rej)=>{const q=db.transaction('base','readwrite').objectStore('base').put(v,'compacta');q.onsuccess=()=>res();q.onerror=()=>rej(q.error)})}catch(_){}}
+function transferProgress(pct,detail){
+  $('#main').innerHTML=head('Transferência','Sincronização da base analítica.')+
+  `<div class="card syncCard"><div class="syncTitle">Carregando base da rede</div><div class="syncPct">${Math.floor(pct)}%</div><div class="syncBar"><i style="width:${pct}%"></i></div><div class="syncDetail">${esc(detail)}</div></div>`;
 }
 async function ensureTransferCompact(){
   if(S.transferCompact){buildTransferLocal();return}
+  transferProgress(1,'Verificando versão da base...');
+  const info=await api('baseTransferenciaInfo');
   const cached=await idbGetTransfer();
-  if(cached&&cached.v===30&&Array.isArray(cached.rows)){
-    S.transferCompact=cached;buildTransferLocal();renderTransferenciaTela();
+  if(cached&&cached.v===31&&cached.versao===info.versao&&Array.isArray(cached.rows)){
+    S.transferCompact=cached;buildTransferLocal();renderTransferenciaTela();return;
   }
-  // Uma consulta apenas por abertura. Depois todos os botões são locais.
-  const fresh=await apiLong('baseTransferenciaCompacta');
-  if(!fresh||!Array.isArray(fresh.rows))throw Error('Não foi possível carregar a base compacta.');
-  S.transferCompact=fresh;await idbPutTransfer(fresh);buildTransferLocal();renderTransferenciaTela();
+  const total=Math.max(0,Number(info.total||0)),limit=2500,all=[];
+  let done=0;
+  while(done<total){
+    const j=await apiLong('baseTransferenciaChunk',{offset:done,limit});
+    const rows=j.rows||[];
+    rows.forEach(r=>all.push([
+      String(r.filial_codigo||''),String(r.ref||''),String(r.cor||''),String(r.tamanho||''),
+      String(r.piramide||''),String(r.colecao_codigo||''),Number(r.estoque_fisico||0),
+      Number(r.estoque_transito||0),Number(r.venda_1m||0),Number(r.venda_6m||0),
+      Number(r.venda_12m||0),String(r.ultima_venda||'')
+    ]));
+    done+=rows.length;
+    const pct=total?Math.min(99,(done/total)*100):99;
+    transferProgress(pct,`${Math.min(done,total).toLocaleString('pt-BR')} de ${total.toLocaleString('pt-BR')} registros`);
+    if(!rows.length)break;
+  }
+  S.transferCompact={v:31,versao:info.versao,rows:all,gerado_em:info.versao};
+  await idbPutTransfer(S.transferCompact);
+  transferProgress(100,'Base pronta. Filtros e projeções agora são locais.');
+  buildTransferLocal();renderTransferenciaTela();
 }
 function buildTransferLocal(){
   const base=S.transferCompact;if(!base||!Array.isArray(base.rows))return;
