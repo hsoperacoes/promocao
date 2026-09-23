@@ -54,7 +54,7 @@
 <script>
 const API_URL='https://script.google.com/macros/s/AKfycbyu4WrW945rJlJ9dAu8vhyJAFsdPZchU-eCNB5ZVe5nCODEw1kb3G_vTWPX9UCooF51sw/exec';
 const DB_NAME='hs_promocao_v1',DB_STORE='cache';
-const S={token:localStorage.getItem('hs_promo_token')||'',user:null,data:null,page:'inicio',catalogo:{},bi:{},precos:{},pending:null,scanner:null,scannerLocked:false,baseSyncPromise:null,basesHydrated:false,pendingWrites:0,analysisCache:{},transfer:null,transferPeriod:6,transferCoverage:1,transferProjection:2,transferPyramids:new Set(),transferColumnFilters:{},transferFilterDraft:{},transferFilterOpen:'',transferSort:{key:'',dir:0},transferGenOrigin:'',transferGenRows:[],transferMode:'parado',transferGenDest:'TODAS',repoColumnFilters:{},repoFilterDraft:{},repoFilterOpen:'',repoSort:{key:'reposicao',dir:-1},transferLoading:false};
+const S={token:localStorage.getItem('hs_promo_token')||'',user:null,data:null,page:'inicio',catalogo:{},bi:{},precos:{},pending:null,scanner:null,scannerLocked:false,baseSyncPromise:null,basesHydrated:false,pendingWrites:0,analysisCache:{},transfer:null,transferPeriod:6,transferCoverage:1,transferProjection:2,transferPyramids:new Set(),transferColumnFilters:{},transferFilterDraft:{},transferFilterOpen:'',transferSort:{key:'',dir:0},transferGenOrigin:'',transferGenRows:[],transferMode:'parado',transferGenDest:'TODAS',repoColumnFilters:{},repoFilterDraft:{},repoFilterOpen:'',repoSort:{key:'reposicao',dir:-1},transferLoading:false,transferCompact:null};
 const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
 function load(v=true){$('#loading').classList.toggle('hidden',!v)} function toast(t){let e=$('#toast');e.textContent=t;e.classList.remove('hidden');setTimeout(()=>e.classList.add('hidden'),3000)}
 async function apiLong(api,p={}){
@@ -116,7 +116,7 @@ async function syncBases(){
 }
 function statusLabel(s){return ({EM_COLETA:'Em coleta',AGUARDANDO_ANALISE:'Em análise',EM_ANALISE:'Em análise',FINALIZADA:'Finalizada',CANCELADA:'Cancelada',FECHADA:'Fechada'})[String(s||'')]||String(s||'').replaceAll('_',' ')}
 function coletaAberta(){return S.data?.promocao?.status==='EM_COLETA'}
-function renderInicio(){if(S.user.perfil==='ADMIN'){const fs=S.data.filiais||[],ativas=fs.filter(x=>x.status==='EM_COLETA').length,aguard=fs.filter(x=>['AGUARDANDO_ANALISE','EM_ANALISE'].includes(x.status)).length;$('#main').innerHTML=head('Painel de Promoções','Controle das filiais e análises. · v29 Supabase rápido + Projeções + Saúde por Pirâmide')+`<div class="cards"><div class="card metric"><span>FILIAIS EM COLETA</span><strong>${ativas}</strong></div><div class="card metric"><span>AGUARDANDO ANÁLISE</span><strong>${aguard}</strong></div><div class="card metric"><span>FILIAIS</span><strong>${fs.length}</strong></div></div><div class="sectionTitle"><h2>Filiais</h2></div>${filiaisCards(fs)}`;return}const p=S.data.promocao,aberta=p?.status==='EM_COLETA';$('#main').innerHTML=head('Promoção — '+S.user.filialNome,aberta?'Bipe e confirme os itens que irão para análise.':'Sua lista foi enviada e está sendo analisada.')+`${!aberta?'<div class="readonlyNotice">Sua lista de promoção está em análise. Aguarde o Léo concluir a análise. Até lá você pode consultar sua lista, mas não incluir ou remover peças.</div>':''}<div class="cards" style="grid-template-columns:repeat(2,1fr)"><div class="card metric"><span>STATUS</span><strong class="statusText">${esc(statusLabel(p?.status||'FECHADA'))}</strong></div><div class="card metric"><span>ITENS NA LISTA</span><strong>${S.data.itens?.length||0}</strong></div></div>${aberta?'<button class="btn primary full" style="margin-top:15px" onclick="go(\'coleta\')">Bipar peças</button>':'<button class="btn full" style="margin-top:15px" onclick="go(\'lista\')">Consultar minha lista</button>'}`}
+function renderInicio(){if(S.user.perfil==='ADMIN'){const fs=S.data.filiais||[],ativas=fs.filter(x=>x.status==='EM_COLETA').length,aguard=fs.filter(x=>['AGUARDANDO_ANALISE','EM_ANALISE'].includes(x.status)).length;$('#main').innerHTML=head('Painel de Promoções','Controle das filiais e análises. · v30 Cache local + Projeções + Saúde por Pirâmide')+`<div class="cards"><div class="card metric"><span>FILIAIS EM COLETA</span><strong>${ativas}</strong></div><div class="card metric"><span>AGUARDANDO ANÁLISE</span><strong>${aguard}</strong></div><div class="card metric"><span>FILIAIS</span><strong>${fs.length}</strong></div></div><div class="sectionTitle"><h2>Filiais</h2></div>${filiaisCards(fs)}`;return}const p=S.data.promocao,aberta=p?.status==='EM_COLETA';$('#main').innerHTML=head('Promoção — '+S.user.filialNome,aberta?'Bipe e confirme os itens que irão para análise.':'Sua lista foi enviada e está sendo analisada.')+`${!aberta?'<div class="readonlyNotice">Sua lista de promoção está em análise. Aguarde o Léo concluir a análise. Até lá você pode consultar sua lista, mas não incluir ou remover peças.</div>':''}<div class="cards" style="grid-template-columns:repeat(2,1fr)"><div class="card metric"><span>STATUS</span><strong class="statusText">${esc(statusLabel(p?.status||'FECHADA'))}</strong></div><div class="card metric"><span>ITENS NA LISTA</span><strong>${S.data.itens?.length||0}</strong></div></div>${aberta?'<button class="btn primary full" style="margin-top:15px" onclick="go(\'coleta\')">Bipar peças</button>':'<button class="btn full" style="margin-top:15px" onclick="go(\'lista\')">Consultar minha lista</button>'}`}
 function filiaisCards(fs){return `<div class="cards">${fs.map(f=>{const emAnalise=['AGUARDANDO_ANALISE','EM_ANALISE'].includes(f.status);return `<div class="card"><b>${esc(f.nome)}</b><p><span class="badge ${f.status==='EM_COLETA'?'green':emAnalise?'amber':'red'}">${esc(statusLabel(f.status))}</span></p><div class="rowActions">${['FECHADA','FINALIZADA','CANCELADA'].includes(f.status)?`<button class="btn good" onclick="iniciarPromo('${f.codigo}')">Iniciar promoção</button>`:''}${f.status==='EM_COLETA'?`<button class="btn danger" onclick="fecharPromo('${f.codigo}')">Bloquear coleta</button>`:''}${emAnalise?`<button class="btn primary" onclick="abrirAnalise('${f.codigo}')">Analisar</button><button class="btn danger" onclick="cancelarPromo('${f.codigo}')">Cancelar</button>`:''}</div></div>`}).join('')}</div>`}
 async function renderColeta(){if(S.user.perfil==='ADMIN')return go('inicio');if(!coletaAberta()){go('inicio');toast('Sua lista de promoção já está em análise. Aguarde a conclusão.');return}if(!Object.keys(S.catalogo).length){$('#main').innerHTML=head('Bipar peças','')+`<div class="card"><div style="display:flex;align-items:center;gap:12px"><div class="spinner" style="width:28px;height:28px;border-width:3px"></div><b>Carregando...</b></div></div>`;const ok=await syncBases();if(!ok||!Object.keys(S.catalogo).length)return;if(S.page!=='coleta')return;}$('#main').innerHTML=head('Bipar peças','Leitura por câmera ou inclusão manual.')+`<div class="scanGrid"><div class="card"><h3>Adicionar peça</h3><button class="btn good full" onclick="openScanner()">📷 Escanear EAN</button><div class="field"><label>Inclusão manual</label><div class="manual"><input id="manualEAN" class="input" inputmode="numeric" maxlength="20" placeholder="Digite ou cole o EAN"><button class="btn primary" onclick="manualEAN()">Adicionar</button></div></div><div id="candidate"></div></div><div class="card"><h3>Lista atual</h3><div id="quickList"></div></div></div>`;$('#manualEAN').onkeydown=e=>{if(e.key==='Enter')manualEAN()};renderQuick()}
 function normalize(v){return String(v??'').trim().toUpperCase()}
@@ -218,40 +218,71 @@ async function renderTransferencia(){
   if(S.user.perfil!=='ADMIN')return go('inicio');
   if(!S.transfer){
     $('#main').innerHTML=head('Transferência','Análise por REF + COR + TAMANHO.')+`<div class="card" style="min-height:110px;display:flex;align-items:center;justify-content:center"><div class="spinner" style="width:30px;height:30px;border-width:3px"></div></div>`;
-    try{await reloadTransferAnalysis(true)}catch(e){toast(e.message);return}
+    try{await ensureTransferCompact()}catch(e){toast(e.message);return}
   }
   renderTransferenciaTela();
 }
-async function reloadTransferAnalysis(first){
-  if(S.transferLoading)return;
-  S.transferLoading=true;
-  const old=S.transfer;
-  if(!first){
-    $('#main').innerHTML=head('Transferência','Calculando somente os resultados necessários no Supabase...')+`<div class="card" style="min-height:110px;display:flex;align-items:center;justify-content:center"><div class="spinner" style="width:30px;height:30px;border-width:3px"></div></div>`;
+function idbOpenTransfer(){
+  return new Promise((resolve,reject)=>{
+    const q=indexedDB.open('HS_TRANSFER_CACHE',1);
+    q.onupgradeneeded=()=>{const db=q.result;if(!db.objectStoreNames.contains('base'))db.createObjectStore('base')};
+    q.onsuccess=()=>resolve(q.result);q.onerror=()=>reject(q.error);
+  });
+}
+async function idbGetTransfer(){
+  try{const db=await idbOpenTransfer();return await new Promise((res,rej)=>{const q=db.transaction('base','readonly').objectStore('base').get('compacta');q.onsuccess=()=>res(q.result||null);q.onerror=()=>rej(q.error)})}catch(_){return null}
+}
+async function idbPutTransfer(v){
+  try{const db=await idbOpenTransfer();await new Promise((res,rej)=>{const q=db.transaction('base','readwrite').objectStore('base').put(v,'compacta');q.onsuccess=()=>res();q.onerror=()=>rej(q.error)})}catch(_){}
+}
+async function ensureTransferCompact(){
+  if(S.transferCompact){buildTransferLocal();return}
+  const cached=await idbGetTransfer();
+  if(cached&&cached.v===30&&Array.isArray(cached.rows)){
+    S.transferCompact=cached;buildTransferLocal();renderTransferenciaTela();
   }
-  try{
-    const j=await apiLong('baseTransferencia',{
-      periodo:S.transferPeriod,projecao:S.transferProjection,
-      cobertura:S.transferCoverage,modo:S.transferMode
-    });
-    S.transfer=j;
-    const valid=new Set(j.piramides||[]);
-    if(first||!S.transferPyramids.size)S.transferPyramids=new Set(valid);
-    else S.transferPyramids=new Set([...S.transferPyramids].filter(x=>valid.has(x)));
-    if(!S.transferPyramids.size)S.transferPyramids=new Set(valid);
-    renderTransferenciaTela();
-  }catch(e){
-    S.transfer=old;
-    toast(e.message);
-    if(old)renderTransferenciaTela();
-    throw e;
-  }finally{S.transferLoading=false}
+  // Uma consulta apenas por abertura. Depois todos os botões são locais.
+  const fresh=await apiLong('baseTransferenciaCompacta');
+  if(!fresh||!Array.isArray(fresh.rows))throw Error('Não foi possível carregar a base compacta.');
+  S.transferCompact=fresh;await idbPutTransfer(fresh);buildTransferLocal();renderTransferenciaTela();
+}
+function buildTransferLocal(){
+  const base=S.transferCompact;if(!base||!Array.isArray(base.rows))return;
+  const bySku={},pirs={},health={};
+  base.rows.forEach(a=>{
+    const codigo=String(a[0]||''),ref=String(a[1]||''),cor=String(a[2]||''),tam=String(a[3]||''),
+          pir=String(a[4]||'')||'Sem pirâmide',colecaoCod=String(a[5]||''),
+          estoque=Number(a[6]||0),transito=Number(a[7]||0),
+          v1=Number(a[8]||0),v6=Number(a[9]||0),v12=Number(a[10]||0),ultima=String(a[11]||'');
+    const media=S.transferPeriod===1?Math.max(0,v1):S.transferPeriod===12?Math.max(0,v12)/12:Math.max(0,v6)/6;
+    pirs[pir]=1;
+    const sk=[ref,cor,tam].join('|');
+    if(!bySku[sk])bySku[sk]={ref,cor,tam,colecao:'',colecaoCod,piramide:pir,lojas:{}};
+    bySku[sk].lojas[codigo]={
+      codigo,nome:({293:'ARTUR',488:'FLORIANO',287:'JOTA',761:'MODA',288:'PONTO',1849:'DIVINA',1848:'ITAUNA'})[codigo]||codigo,
+      estoque,emTransito:transito,media1:media,media6:media,media12:media,
+      ultima:ultima?ultima.slice(8,10)+'/'+ultima.slice(5,7)+'/'+ultima.slice(0,4):'',
+      ultimaTs:ultima?new Date(ultima+'T00:00:00').getTime()||0:0
+    };
+    const hk=codigo+'|'+pir;
+    if(!health[hk])health[hk]={filial:bySku[sk].lojas[codigo].nome,codigo,piramide:pir,estoque:0,transito:0,media:0};
+    health[hk].estoque+=estoque;health[hk].transito+=transito;health[hk].media+=media;
+  });
+  const nomes={293:'ARTUR',488:'FLORIANO',287:'JOTA',761:'MODA',288:'PONTO',1849:'DIVINA',1848:'ITAUNA'};
+  const codigos=['293','488','287','761','288','1849','1848'];
+  const itens=Object.values(bySku).map(s=>({
+    ...s,lojas:codigos.map(c=>s.lojas[c]||{codigo:c,nome:nomes[c],estoque:0,emTransito:0,media1:0,media6:0,media12:0,ultima:'',ultimaTs:0})
+  }));
+  S.transfer={ok:true,fonte:'SUPABASE_V30_CACHE_LOCAL',piramides:Object.keys(pirs).sort(),itens,saude:Object.values(health),geradoEm:base.gerado_em||''};
+  const valid=new Set(S.transfer.piramides);
+  if(!S.transferPyramids.size)S.transferPyramids=new Set(valid);
+  else{S.transferPyramids=new Set([...S.transferPyramids].filter(x=>valid.has(x)));if(!S.transferPyramids.size)S.transferPyramids=new Set(valid)}
 }
 function transferDate(v){if(!v)return '-';if(v instanceof Date&&!isNaN(v))return v.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric'});return dateBR(v)}
-async function setTransferPeriod(n){S.transferPeriod=Number(n);S.transferColumnFilters={};S.repoColumnFilters={};await reloadTransferAnalysis(false)}
-async function setTransferCoverage(v){S.transferCoverage=Number(v)||1;S.transferColumnFilters={};await reloadTransferAnalysis(false)}
-async function setTransferProjection(v){S.transferProjection=Number(v)||1;S.transferColumnFilters={};S.repoColumnFilters={};await reloadTransferAnalysis(false)}
-async function setTransferMode(m){S.transferMode=m;S.transferColumnFilters={};S.repoColumnFilters={};S.transferSort={key:'',dir:0};await reloadTransferAnalysis(false)}
+function setTransferPeriod(n){S.transferPeriod=Number(n);S.transferColumnFilters={};S.repoColumnFilters={};buildTransferLocal();renderTransferenciaTela()}
+function setTransferCoverage(v){S.transferCoverage=Number(v)||1;S.transferColumnFilters={};buildTransferLocal();renderTransferenciaTela()}
+function setTransferProjection(v){S.transferProjection=Number(v)||1;S.transferColumnFilters={};S.repoColumnFilters={};buildTransferLocal();renderTransferenciaTela()}
+function setTransferMode(m){S.transferMode=m;S.transferColumnFilters={};S.repoColumnFilters={};S.transferSort={key:'',dir:0};buildTransferLocal();renderTransferenciaTela()}
 function toggleTransferPyramid(p,on){if(on)S.transferPyramids.add(p);else S.transferPyramids.delete(p);S.transferColumnFilters={};renderTransferenciaTela()}
 function toggleAllPyramids(on){S.transferPyramids=new Set(on?(S.transfer?.piramides||[]):[]);S.transferColumnFilters={};renderTransferenciaTela()}
 function mediaPeriodoLoja(l){return Number(l.media6??l.media1??l.media12)||0}
