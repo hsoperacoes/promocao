@@ -118,7 +118,7 @@ async function syncBases(){
 }
 function statusLabel(s){return ({EM_COLETA:'Em coleta',AGUARDANDO_ANALISE:'Em análise',EM_ANALISE:'Em análise',FINALIZADA:'Finalizada',CANCELADA:'Cancelada',FECHADA:'Fechada'})[String(s||'')]||String(s||'').replaceAll('_',' ')}
 function coletaAberta(){return S.data?.promocao?.status==='EM_COLETA'}
-function renderInicio(){if(S.user.perfil==='ADMIN'){const fs=S.data.filiais||[],ativas=fs.filter(x=>x.status==='EM_COLETA').length,aguard=fs.filter(x=>['AGUARDANDO_ANALISE','EM_ANALISE'].includes(x.status)).length;$('#main').innerHTML=head('Painel de Promoções','Controle das filiais e análises. · v32 Memória otimizada')+`<div class="cards"><div class="card metric"><span>FILIAIS EM COLETA</span><strong>${ativas}</strong></div><div class="card metric"><span>AGUARDANDO ANÁLISE</span><strong>${aguard}</strong></div><div class="card metric"><span>FILIAIS</span><strong>${fs.length}</strong></div></div><div class="sectionTitle"><h2>Filiais</h2></div>${filiaisCards(fs)}`;return}const p=S.data.promocao,aberta=p?.status==='EM_COLETA';$('#main').innerHTML=head('Promoção — '+S.user.filialNome,aberta?'Bipe e confirme os itens que irão para análise.':'Sua lista foi enviada e está sendo analisada.')+`${!aberta?'<div class="readonlyNotice">Sua lista de promoção está em análise. Aguarde o Léo concluir a análise. Até lá você pode consultar sua lista, mas não incluir ou remover peças.</div>':''}<div class="cards" style="grid-template-columns:repeat(2,1fr)"><div class="card metric"><span>STATUS</span><strong class="statusText">${esc(statusLabel(p?.status||'FECHADA'))}</strong></div><div class="card metric"><span>ITENS NA LISTA</span><strong>${S.data.itens?.length||0}</strong></div></div>${aberta?'<button class="btn primary full" style="margin-top:15px" onclick="go(\'coleta\')">Bipar peças</button>':'<button class="btn full" style="margin-top:15px" onclick="go(\'lista\')">Consultar minha lista</button>'}`}
+function renderInicio(){if(S.user.perfil==='ADMIN'){const fs=S.data.filiais||[],ativas=fs.filter(x=>x.status==='EM_COLETA').length,aguard=fs.filter(x=>['AGUARDANDO_ANALISE','EM_ANALISE'].includes(x.status)).length;$('#main').innerHTML=head('Painel de Promoções','Controle das filiais e análises. · v33 Memória otimizada')+`<div class="cards"><div class="card metric"><span>FILIAIS EM COLETA</span><strong>${ativas}</strong></div><div class="card metric"><span>AGUARDANDO ANÁLISE</span><strong>${aguard}</strong></div><div class="card metric"><span>FILIAIS</span><strong>${fs.length}</strong></div></div><div class="sectionTitle"><h2>Filiais</h2></div>${filiaisCards(fs)}`;return}const p=S.data.promocao,aberta=p?.status==='EM_COLETA';$('#main').innerHTML=head('Promoção — '+S.user.filialNome,aberta?'Bipe e confirme os itens que irão para análise.':'Sua lista foi enviada e está sendo analisada.')+`${!aberta?'<div class="readonlyNotice">Sua lista de promoção está em análise. Aguarde o Léo concluir a análise. Até lá você pode consultar sua lista, mas não incluir ou remover peças.</div>':''}<div class="cards" style="grid-template-columns:repeat(2,1fr)"><div class="card metric"><span>STATUS</span><strong class="statusText">${esc(statusLabel(p?.status||'FECHADA'))}</strong></div><div class="card metric"><span>ITENS NA LISTA</span><strong>${S.data.itens?.length||0}</strong></div></div>${aberta?'<button class="btn primary full" style="margin-top:15px" onclick="go(\'coleta\')">Bipar peças</button>':'<button class="btn full" style="margin-top:15px" onclick="go(\'lista\')">Consultar minha lista</button>'}`}
 function filiaisCards(fs){return `<div class="cards">${fs.map(f=>{const emAnalise=['AGUARDANDO_ANALISE','EM_ANALISE'].includes(f.status);return `<div class="card"><b>${esc(f.nome)}</b><p><span class="badge ${f.status==='EM_COLETA'?'green':emAnalise?'amber':'red'}">${esc(statusLabel(f.status))}</span></p><div class="rowActions">${['FECHADA','FINALIZADA','CANCELADA'].includes(f.status)?`<button class="btn good" onclick="iniciarPromo('${f.codigo}')">Iniciar promoção</button>`:''}${f.status==='EM_COLETA'?`<button class="btn danger" onclick="fecharPromo('${f.codigo}')">Bloquear coleta</button>`:''}${emAnalise?`<button class="btn primary" onclick="abrirAnalise('${f.codigo}')">Analisar</button><button class="btn danger" onclick="cancelarPromo('${f.codigo}')">Cancelar</button>`:''}</div></div>`}).join('')}</div>`}
 function syncView(title,pct,detail){
   $('#main').innerHTML=head(title,'Preparando a base local para leitura imediata.')+
@@ -329,8 +329,8 @@ function buildTransferLocal(){
       ultimaTs:ultima?new Date(ultima+'T00:00:00').getTime()||0:0
     };
     const hk=codigo+'|'+pir;
-    if(!health[hk])health[hk]={filial:bySku[sk].lojas[codigo].nome,codigo,piramide:pir,estoque:0,transito:0,media:0};
-    health[hk].estoque+=estoque;health[hk].transito+=transito;health[hk].media+=media;
+    if(!health[hk])health[hk]={filial:bySku[sk].lojas[codigo].nome,codigo,piramide:pir,estoque:0,transito:0,media1:0,media6:0,media12:0};
+    health[hk].estoque+=estoque;health[hk].transito+=transito;health[hk].media1+=Math.max(0,v1);health[hk].media6+=Math.max(0,v6)/6;health[hk].media12+=Math.max(0,v12)/12;
   });
   const nomes={293:'ARTUR',488:'FLORIANO',287:'JOTA',761:'MODA',288:'PONTO',1849:'DIVINA',1848:'ITAUNA'};
   const codigos=['293','488','287','761','288','1849','1848'];
@@ -380,14 +380,14 @@ function renderTransferenciaTela(){
 function piramideSaudeData(){
   const proj=Number(S.transferProjection||1),sel=S.transferPyramids;
   return (S.transfer?.saude||[]).filter(x=>sel.has(x.piramide)).map(x=>{
-    const consumo=Number(x.media||0)*proj,projetado=Number(x.estoque||0)-consumo,
+    const media=Number(S.transferPeriod===1?x.media1:S.transferPeriod===12?x.media12:x.media6)||0,consumo=media*proj,projetado=Number(x.estoque||0)-consumo,
       comTransito=Number(x.estoque||0)+Number(x.transito||0)-consumo,
-      cobertura=x.media>0?x.estoque/x.media:999,
-      coberturaFinal=x.media>0?Math.max(0,projetado)/x.media:999;
+      cobertura=media>0?x.estoque/media:999,
+      coberturaFinal=media>0?Math.max(0,projetado)/media:999;
     let situacao='Saudável';
-    if(x.media>0&&projetado<0)situacao='Crítico';
-    else if(x.media>0&&coberturaFinal<1)situacao='Atenção';
-    return {...x,consumo,projetado,comTransito,cobertura,coberturaFinal,situacao};
+    if(media>0&&projetado<0)situacao='Crítico';
+    else if(media>0&&coberturaFinal<1)situacao='Atenção';
+    return {...x,media,consumo,projetado,comTransito,cobertura,coberturaFinal,situacao};
   }).sort((a,b)=>a.filial.localeCompare(b.filial,'pt-BR')||a.piramide.localeCompare(b.piramide,'pt-BR'));
 }
 function renderPiramideSaude(){const rows=piramideSaudeData(),proj=Number(S.transferProjection||1);return `<div class="card" style="margin-top:16px"><h3 style="margin:0 0 4px">Saúde do estoque por Pirâmide</h3><div class="muted">Projeção para ${proj} mês(es). O trânsito aparece separado e não altera a situação conservadora.</div><div class="tableWrap" style="margin-top:12px"><table class="table"><thead><tr><th>Filial</th><th>Pirâmide</th><th>Estoque atual</th><th>Em trânsito</th><th>Média/mês</th><th>Consumo projetado</th><th>Estoque ao final</th><th>Final + trânsito</th><th>Cobertura atual</th><th>Situação</th></tr></thead><tbody>${rows.length?rows.map(r=>`<tr><td><b>${esc(r.filial)}</b></td><td>${esc(r.piramide)}</td><td>${Math.round(r.estoque)}</td><td>${Math.round(r.transito)}</td><td>${r.media.toFixed(1)}</td><td>${Math.ceil(r.consumo)}</td><td><b>${Math.floor(r.projetado)}</b></td><td>${Math.floor(r.comTransito)}</td><td>${r.cobertura>=999?'Sem venda':r.cobertura.toFixed(1)+'x'}</td><td><span class="badge ${r.situacao==='Saudável'?'green':r.situacao==='Atenção'?'amber':'red'}">${r.situacao}</span></td></tr>`).join(''):`<tr><td colspan="10" class="empty">Sem dados.</td></tr>`}</tbody></table></div></div>`}
