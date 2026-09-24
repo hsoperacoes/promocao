@@ -56,7 +56,7 @@
 .healthStores{display:grid;grid-template-columns:repeat(7,minmax(105px,1fr));gap:7px}
 .healthStore{border:1px solid #dce4ec;border-radius:9px;padding:8px;background:#fbfcfe;min-width:0}
 .healthStoreTitle{font-size:11px;font-weight:900;margin-bottom:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.healthLine{display:grid;grid-template-columns:minmax(0,1fr) 22px 30px;gap:4px;align-items:center;margin:3px 0;font-size:9px}
+.healthLine{display:grid;grid-template-columns:minmax(0,1fr) 22px 38px;gap:4px;align-items:center;margin:3px 0;font-size:9px}
 .healthLine>span:first-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .healthRing{--p:0;--c:#20b15a;width:20px;height:20px;border-radius:50%;background:conic-gradient(var(--c) calc(var(--p)*1%),#e6ebf0 0);position:relative}
 .healthRing:after{content:"";position:absolute;inset:4px;background:#fbfcfe;border-radius:50%}
@@ -415,12 +415,12 @@ function repoHealthData(){
       out[k].estoque+=Math.max(0,Number(l.estoque||0));out[k].alvo+=alvo;out[k].transito+=Math.max(0,Number(l.emTransito||0));
     });
   });
-  return Object.values(out).map(x=>({...x,pct:x.alvo>0?Math.max(0,Math.min(100,(x.estoque/x.alvo)*100)):100}));
+  return Object.values(out).map(x=>({...x,pct:x.alvo>0?Math.max(0,(x.estoque/x.alvo)*100):100}));
 }
 function renderPiramideSaude(rows){
   const data=repoHealthData(),filiais=['ARTUR','FLORIANO','JOTA','MODA','PONTO','DIVINA','ITAUNA'];
   const pirs=[...new Set(data.map(x=>x.piramide))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
-  return `<div class="card healthCompact"><div class="healthCompactHead"><div><h3>Saúde das pirâmides por filial</h3><div class="muted" style="font-size:10px">Estoque físico em relação à quantidade com projeção, usando os mesmos filtros da tabela.</div></div><div class="healthLegend"><span><i class="g"></i>≥ 80% Bom</span><span><i class="a"></i>50%–79% Atenção</span><span><i class="r"></i>&lt; 50% Crítico</span></div></div><div class="healthStores">${filiais.map(f=>{const fd=data.filter(x=>x.filial===f);return `<div class="healthStore"><div class="healthStoreTitle">${esc(f)}</div>${pirs.length?pirs.map(p=>{const x=fd.find(y=>y.piramide===p),pct=x?Math.round(x.pct):0,c=pct>=80?'#20b15a':pct>=50?'#efb817':'#ef4444';return `<div class="healthLine" title="${esc(p)} — ${pct}%"><span>${esc(p==='Não Classificado'?'Não Class.':p)}</span><i class="healthRing" style="--p:${pct};--c:${c}"></i><b class="healthPct">${pct}%</b></div>`}).join(''):`<div class="muted" style="font-size:9px">Sem dados</div>`}</div>`}).join('')}</div></div>`;
+  return `<div class="card healthCompact"><div class="healthCompactHead"><div><h3>Saúde das pirâmides por filial</h3><div class="muted" style="font-size:10px">Cobertura da projeção = estoque físico ÷ (média mensal × meses projetados). O percentual pode passar de 100%.</div></div><div class="healthLegend"><span><i class="g"></i>≥ 100% Cobre a projeção</span><span><i class="a"></i>70%–99% Atenção</span><span><i class="r"></i>&lt; 70% Crítico</span></div></div><div class="healthStores">${filiais.map(f=>{const fd=data.filter(x=>x.filial===f);return `<div class="healthStore"><div class="healthStoreTitle">${esc(f)}</div>${pirs.length?pirs.map(p=>{const x=fd.find(y=>y.piramide===p),pct=x?Math.round(x.pct):0,ring=Math.min(100,pct),c=pct>=100?'#20b15a':pct>=70?'#efb817':'#ef4444';return `<div class="healthLine" title="${esc(p)} — ${pct}%"><span>${esc(p==='Não Classificado'?'Não Class.':p)}</span><i class="healthRing" style="--p:${ring};--c:${c}"></i><b class="healthPct">${pct}%</b></div>`}).join(''):`<div class="muted" style="font-size:9px">Sem dados</div>`}</div>`}).join('')}</div></div>`;
 }
 const REPO_COLS=[['sku','REF + COR + TAM',r=>transferSku(r)],['colecao','Coleção',r=>String(r.colecaoCod||'-')],['filial','Filial',r=>r.destino],['estoque','Estoque',r=>String(r.estoque)],['emTransito','Em trânsito',r=>String(r.emTransito||0)],['media','Média mensal',r=>Number(r.media||0).toFixed(2)],['alvo','Quantidade com projeção',r=>String(r.alvo||0)],['necessidade','Diferença da projeção com estoque da filial',r=>String(r.necessidadeTotal)],['transferivel','Disponível na rede',r=>String(r.transferivel)],['reposicao','Reposição sugerida',r=>String(r.reposicao)],['ultima','Última venda',r=>transferDate(r.ultima)]];
 function repoBaseRows(){return necessidadeData().repos||[]}
