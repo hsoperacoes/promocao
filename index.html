@@ -74,6 +74,12 @@
 .promoApplyBtn{height:38px!important;min-height:38px!important;margin:0!important;align-self:end!important;display:inline-flex!important;align-items:center!important;justify-content:center!important}
 .discountBar{display:grid!important;grid-template-columns:minmax(300px,1fr) 112px auto!important;align-items:end!important;gap:8px!important}
 .discountBar .field{margin:0!important}.discountBar .field .input,.discountBar .field select{height:38px!important;box-sizing:border-box!important}
+
+.scannerCandidate{position:absolute;z-index:30;left:12px;right:12px;bottom:18px;display:flex;justify-content:center;pointer-events:auto}
+.scannerCandidateCard{width:min(500px,calc(100vw - 40px));background:#fff;border:1px solid #d7e0e8;border-radius:18px;padding:18px;box-shadow:0 18px 50px #0005;color:#17324d}
+.scannerCandidateSku{font-size:24px;font-weight:900}.scannerCandidateEan{font-size:15px;color:#718293;margin:5px 0 14px}
+.scannerCandidateGrid{display:grid;grid-template-columns:repeat(2,1fr);gap:9px;margin-bottom:14px}.scannerCandidateGrid>div{border:1px solid #dbe3ea;border-radius:12px;padding:11px;background:#fbfcfd}.scannerCandidateGrid span{display:block;font-size:12px;font-weight:800;color:#6b7d8c}.scannerCandidateGrid b{display:block;font-size:18px;margin-top:4px}
+#scanner{position:fixed}
 </style>
 </head>
 <body>
@@ -209,30 +215,38 @@ function dateBR(v){
   const d=new Date(s);return isNaN(d)?s:d.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric'});
 }
 function biKey(ref,cor,tam){return [normalize(S.user.filialCodigo),normalize(ref),normalize(cor),normalize(tam)].join('|')}
+
+function releasePromoScanner(){
+  S.scannerLocked=false;
+  const v=$('#scannerView');if(v)v.classList.remove('paused');
+  const i=$('#scannerInfo');if(i)i.textContent='Aponte para o próximo EAN-13 da peça.';
+  const c=$('#scannerCandidate');if(c)c.remove();
+}
+function renderScannerCandidate(){
+  const x=S.pending;if(!x)return releasePromoScanner();
+  let host=$('#scannerCandidate');
+  if(!host){host=document.createElement('div');host.id='scannerCandidate';host.className='scannerCandidate';$('#scanner').appendChild(host)}
+  host.innerHTML=`<div class="scannerCandidateCard"><div class="scannerCandidateSku">${esc(displayRef(x.ref))} · ${esc(x.cor)} · ${esc(x.tam)}</div><div class="scannerCandidateEan">EAN ${esc(x.ean)}</div><div class="scannerCandidateGrid"><div><span>Estoque</span><b>${Number(x.estoque||0)}</b></div><div><span>Preço atual</span><b>${money(x.preco)}</b></div><div><span>Pirâmide</span><b>${esc(x.piramide||'-')}</b></div></div><div class="rowActions"><button class="btn good" onclick="confirmScannerItem()">Confirmar item</button><button class="btn" onclick="cancelScannerItem()">Cancelar</button></div></div>`;
+  $('#scannerInfo').textContent='Confirme ou cancele o item para liberar a próxima leitura.';
+}
+async function confirmScannerItem(){
+  if(!S.pending)return releasePromoScanner();
+  await confirmItem(true);releasePromoScanner();
+}
+function cancelScannerItem(){S.pending=null;releasePromoScanner()}
 function processEAN(raw){const ean=(String(raw).match(/\d{13}/)||[])[0];if(!ean)return toast('EAN inválido. Informe 13 dígitos.');const c=S.catalogo[ean];if(!c)return toast('EAN não encontrado no catálogo.');const b=S.bi[biKey(c.ref,c.cor,c.tam)]||{};const ult=S.bi[latestKey(c.ref,c.cor,c.tam)]||{};const preco=S.precos[normalize(c.ref)];S.pending={ean,...c,estoque:Number(b.estoque||0),piramide:b.piramide||'',dataUltima:b.dataUltima||'',preco:Number(preco||0),ultimaVendaData:ult.data||'',ultimaVendaFilial:ult.filial||'',ultimaVendaEstoque:Number(ult.estoque||0)};renderCandidate();return true}
 function renderCandidate(){const x=S.pending;if(!x)return;$('#candidate').innerHTML=`<div class="productCard"><div class="productCode">${esc(displayRef(x.ref))} · ${esc(x.cor)} · ${esc(x.tam)}</div><div class="muted">EAN ${esc(x.ean)}</div><div class="facts"><div class="fact"><small>Estoque</small><b>${x.estoque}</b></div><div class="fact"><small>Preço atual</small><b>${money(x.preco)}</b></div><div class="fact"><small>Pirâmide</small><b>${esc(x.piramide||'-')}</b></div></div><div class="rowActions"><button class="btn good" onclick="confirmItem()">Confirmar item</button><button class="btn" onclick="S.pending=null;$('#candidate').innerHTML=''">Cancelar</button></div></div>`}
-async function confirmItem(){
+async function confirmItem(fromScanner=false){
   if(!S.pending)return;
-  const item={...S.pending};
-  const tempId='LOCAL_'+Date.now()+'_'+Math.random().toString(36).slice(2);
-  const optimistic={...item,id:tempId,_localPending:true};
+  const item={...S.pending},tempId='LOCAL_'+Date.now()+'_'+Math.random().toString(36).slice(2),optimistic={...item,id:tempId,_localPending:true};
   S.data.itens=S.data.itens||[];
   const exists=S.data.itens.some(i=>normalize(i.ref)===normalize(item.ref)&&normalize(i.cor)===normalize(item.cor)&&normalize(i.tam)===normalize(item.tam));
-  if(exists){toast('Este item já está na lista.');S.pending=null;renderColeta();return}
+  if(exists){toast('Este item já está na lista.');S.pending=null;if(!fromScanner)renderColeta();return}
   S.data.itens.push(optimistic);S.pending=null;S.pendingWrites++;
-  renderColeta();toast('Salvando item...');
-  try{
-    const j=await apiLong('adicionarItem',{item});
-    if(j.itens)S.data.itens=j.itens;
-    toast('Item incluído.');
-  }catch(e){
-    S.data.itens=(S.data.itens||[]).filter(i=>i.id!==tempId);
-    toast('Não foi possível gravar o item. Tente novamente.');
-  }finally{
-    S.pendingWrites=Math.max(0,S.pendingWrites-1);
-    if(S.page==='coleta')renderQuick();
-    if(S.page==='lista')renderLista();
-  }
+  if(!fromScanner)renderColeta();toast('Salvando item...');
+  try{const j=await apiLong('adicionarItem',{item});if(j.itens)S.data.itens=j.itens;toast('Item incluído.')}
+  catch(e){S.data.itens=(S.data.itens||[]).filter(i=>i.id!==tempId);toast('Não foi possível gravar o item. Tente novamente.')}
+  finally{S.pendingWrites=Math.max(0,S.pendingWrites-1);if(!fromScanner){if(S.page==='coleta')renderQuick();if(S.page==='lista')renderLista()}}
 }
 function manualEAN(){const i=$('#manualEAN');if(processEAN(i.value)){i.value='';i.focus()}}
 function renderQuick(){const e=$('#quickList');if(!e)return;const a=S.data.itens||[];e.innerHTML=a.length?a.slice().reverse().slice(0,15).map(x=>`<div style="padding:9px 0;border-bottom:1px solid #e6ebef"><b>${esc(displayRef(x.ref))} · ${esc(x.cor)} · ${esc(x.tam)}</b><br><span class="muted">Estoque ${x.estoque} • ${money(x.preco)}</span></div>`).join(''):`<div class="empty">Nenhum item adicionado.</div>`}
@@ -283,13 +297,13 @@ function renderAnalise(){
   `<div class="card"><div class="discountBar"><div class="field"><label>Aplicar desconto em</label><select id="discTarget"><option value="TODOS">Todos os itens</option>${pir.map(x=>`<option value="${esc(x)}">Pirâmide: ${esc(x)}</option>`).join('')}</select></div><div class="field"><label>Desconto %</label><input id="discPct" class="input" type="number" min="0" max="100" step="0.01" onkeydown="if(event.key===\'Enter\'){event.preventDefault();applyDiscount()}"></div><button class="btn primary promoApplyBtn" onclick="applyDiscount()">Aplicar</button></div><div class="coverageHint">Preços definidos manualmente ficam protegidos e não são alterados pelo botão “Aplicar”.</div></div>
   <div class="sectionTitle"><h2>Itens</h2></div>
   <div class="tableWrap"><table class="table"><thead><tr><th>Produto</th><th>Preço atual</th><th>Estoque ${esc(a.filialNome)}</th><th>Última venda ${esc(a.filialNome)}</th><th>Última venda na rede</th><th>Filial da última venda</th><th>Estoque nessa filial</th><th>Pirâmide</th><th>Desconto %</th><th>Preço promocional manual</th><th>Novo preço</th></tr></thead><tbody>
-  ${a.itens.map(x=>`<tr><td><b>${esc(displayRef(x.ref))} · ${esc(x.cor)} · ${esc(x.tam)}</b></td><td class="ownData">${money(x.preco)}</td><td class="ownData">${x.estoque}</td><td class="ownData">${dateBR(x.dataUltima)}</td><td class="networkData">${dateBR(x.ultimaVendaData)}</td><td class="networkData">${esc(x.ultimaVendaFilial||'-')}</td><td class="networkData">${x.ultimaVendaFilial?Number(x.ultimaVendaEstoque||0):'-'}</td><td>${esc(x.piramide||'-')}</td><td><input id="dp_${x.id}" class="input" style="width:90px" type="number" min="0" max="100" step=".01" value="${Number(x.desconto||0).toFixed(2).replace(/\.00$/,'')}" onchange="itemDiscount('${x.id}',this.value)"><div class="saleMeta">${x.descontoManual?'Protegido do aplicar geral':''}</div></td><td><input id="mp_${x.id}" class="input" style="width:125px" type="number" min="0" step=".01" placeholder="Ex.: 79,90" value="${x.precoManual?Number(x.novoPreco||0).toFixed(2):''}" onchange="itemManualPrice('${x.id}',this.value)"><div class="saleMeta">${x.descontoManual?'Protegido do aplicar geral':''}</div></td><td><b id="np_${x.id}">${money(Number(x.novoPreco||0)>0?x.novoPreco:calcNew(x.preco,x.desconto))}</b></td></tr>`).join('')}
+  ${a.itens.map(x=>`<tr><td><b>${esc(displayRef(x.ref))} · ${esc(x.cor)} · ${esc(x.tam)}</b></td><td class="ownData">${money(x.preco)}</td><td class="ownData">${x.estoque}</td><td class="ownData">${dateBR(x.dataUltima)}</td><td class="networkData">${dateBR(x.ultimaVendaData)}</td><td class="networkData">${esc(x.ultimaVendaFilial||'-')}</td><td class="networkData">${x.ultimaVendaFilial?Number(x.ultimaVendaEstoque||0):'-'}</td><td>${esc(x.piramide||'-')}</td><td><input id="dp_${x.id}" class="input" style="width:90px" type="number" min="0" max="100" step=".01" value="${Number(x.desconto||0).toFixed(2).replace(/\.00$/,'')}" onchange="itemDiscount('${x.id}',this.value)"><div class="saleMeta">${x.precoManual?'Protegido do aplicar geral':''}</div></td><td><input id="mp_${x.id}" class="input" style="width:125px" type="number" min="0" step=".01" placeholder="Ex.: 79,90" value="${x.precoManual?Number(x.novoPreco||0).toFixed(2):''}" onchange="itemManualPrice('${x.id}',this.value)"><div class="saleMeta">${x.precoManual?'Protegido do aplicar geral':''}</div></td><td><b id="np_${x.id}">${money(Number(x.novoPreco||0)>0?x.novoPreco:calcNew(x.preco,x.desconto))}</b></td></tr>`).join('')}
   </tbody></table></div><button class="btn good full" style="margin-top:14px" onclick="gerarCSV()">Gerar CSV</button>`;
 }
 function calcNew(p,d){const bruto=Math.max(0,Number(p||0)*(1-Number(d||0)/100));return Math.floor(bruto)+0.98}
 async function itemDiscount(id,v){
   const pct=Math.max(0,Math.min(100,Number(v)||0)),x=S.data.analise.itens.find(i=>i.id===id);
-  if(x){x.desconto=pct;x.descontoManual=true;x.precoManual=false;x.novoPreco=calcNew(x.preco,pct);$('#np_'+id).textContent=money(x.novoPreco)}
+  if(x){x.desconto=pct;x.descontoManual=false;x.precoManual=false;x.novoPreco=calcNew(x.preco,pct);$('#np_'+id).textContent=money(x.novoPreco)}
   try{await api('salvarDesconto',{id,desconto:pct});renderAnalise()}catch(e){toast(e.message)}
 }
 async function itemManualPrice(id,v){
@@ -298,7 +312,14 @@ async function itemManualPrice(id,v){
   if(x){x.novoPreco=Math.round(preco*100)/100;x.precoManual=true;x.descontoManual=true;x.desconto=x.preco>0?Math.max(0,(1-x.novoPreco/x.preco)*100):0;$('#np_'+id).textContent=money(x.novoPreco)}
   try{await api('salvarPrecoManual',{id,preco:x.novoPreco});renderAnalise()}catch(e){toast(e.message)}
 }
-async function applyDiscount(){const t=$('#discTarget').value,p=Math.max(0,Math.min(100,Number($('#discPct').value)||0));const candidatos=S.data.analise.itens.filter(x=>t==='TODOS'||normalize(x.piramide)===normalize(t)),afetados=candidatos.filter(x=>!x.descontoManual&&!x.precoManual);afetados.forEach(x=>x.desconto=p);if(S.data.analiseCodigo)S.analysisCache[S.data.analiseCodigo]=S.data.analise;renderAnalise();const protegidos=candidatos.length-afetados.length;toast(`${afetados.length} item(ns) atualizado(s).${protegidos?` ${protegidos} manual(is) mantido(s).`:''}`);try{await apiLong('aplicarDesconto',{filialCodigo:S.data.analiseCodigo,alvo:t,desconto:p})}catch(e){toast('O desconto apareceu na tela, mas não foi possível salvar no banco. Tente aplicar novamente.')}}
+async function applyDiscount(){
+  const t=$('#discTarget').value,p=Math.max(0,Math.min(100,Number($('#discPct').value)||0));
+  const candidatos=S.data.analise.itens.filter(x=>t==='TODOS'||normalize(x.piramide)===normalize(t)),afetados=candidatos.filter(x=>!x.precoManual);
+  afetados.forEach(x=>{x.desconto=p;x.novoPreco=calcNew(x.preco,p);x.descontoManual=false});
+  if(S.data.analiseCodigo)S.analysisCache[S.data.analiseCodigo]=S.data.analise;renderAnalise();
+  const protegidos=candidatos.length-afetados.length;toast(`${afetados.length} item(ns) atualizado(s).${protegidos?` ${protegidos} com preço manual mantido(s).`:''}`);
+  try{await apiLong('aplicarDesconto',{filialCodigo:S.data.analiseCodigo,alvo:t,desconto:p})}catch(e){toast('O desconto apareceu na tela, mas não foi possível salvar no banco. Tente aplicar novamente.')}
+}
 async function gerarCSV(){try{load();const cod=S.data.analiseCodigo;const j=await api('gerarCSV',{filialCodigo:cod});delete S.analysisCache[cod];if(j.downloadUrl)window.open(j.downloadUrl,'_blank');await refresh();toast('CSV gerado.')}catch(e){toast(e.message)}finally{load(false)}}
 S.histSort=S.histSort||{k:'iniciadaEm',dir:-1};
 const HIST_COLS=[['filialNome','Filial'],['filialCodigo','Código'],['iniciadaEm','Iniciada'],['finalizadaEm','Finalizada'],['itens','Itens'],['status','Status']];
@@ -629,8 +650,19 @@ async function confirmPass(c,usuario){const a=$('#newPass').value,b=$('#newPass2
 function closeModal(){$('#modal').classList.add('hidden')}
 async function refresh(){const j=await api('bootstrap');S.data=j;S.user=j.user}
 function money(v){return Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
-async function openScanner(){S.scannerLocked=false;$('#scanner').classList.remove('hidden');$('#scannerView').classList.remove('paused');$('#scannerInfo').textContent='Aponte para o EAN-13 da peça.';try{S.scanner=new Html5Qrcode('html5-ean');await S.scanner.start({facingMode:'environment'},{fps:8,qrbox:{width:280,height:220},experimentalFeatures:{useBarCodeDetectorIfSupported:true},rememberLastUsedCamera:true},async text=>{if(S.scannerLocked)return;const e=(String(text).match(/\d{13}/)||[])[0];if(!e)return;S.scannerLocked=true;$('#scannerView').classList.add('paused');$('#scannerInfo').innerHTML=`EAN <b>${e}</b> capturado. Confirme o item e depois toque aqui para liberar o próximo.`;beep();await closeScanner();if(S.page!=='coleta')go('coleta');processEAN(e)},()=>{})}catch(e){toast('Não foi possível abrir a câmera.');closeScanner()}}
-$('#scannerInfo').onclick=()=>{if(S.scannerLocked){S.scannerLocked=false;$('#scannerView').classList.remove('paused');$('#scannerInfo').textContent='Scanner liberado. Aponte para o próximo EAN-13.'}}
+async function openScanner(){
+  S.scannerLocked=false;$('#scanner').classList.remove('hidden');$('#scannerView').classList.remove('paused');$('#scannerInfo').textContent='Aponte para o EAN-13 da peça.';
+  try{
+    S.scanner=new Html5Qrcode('html5-ean');
+    await S.scanner.start({facingMode:'environment'},{fps:8,qrbox:{width:280,height:220},experimentalFeatures:{useBarCodeDetectorIfSupported:true},rememberLastUsedCamera:true},async text=>{
+      if(S.scannerLocked)return;const e=(String(text).match(/\d{13}/)||[])[0];if(!e)return;
+      S.scannerLocked=true;$('#scannerView').classList.add('paused');beep();
+      const ok=processEAN(e);
+      if(!ok){releasePromoScanner();return}
+      renderScannerCandidate();
+    },()=>{});
+  }catch(e){toast('Não foi possível abrir a câmera.');closeScanner()}
+}
 async function closeScanner(){try{if(S.scanner){await S.scanner.stop().catch(()=>{});await S.scanner.clear().catch(()=>{});S.scanner=null}}catch{}$('#scanner').classList.add('hidden')}
 function beep(){try{const a=new (window.AudioContext||window.webkitAudioContext)(),o=a.createOscillator(),g=a.createGain();o.connect(g);g.connect(a.destination);o.frequency.value=900;g.gain.value=.12;o.start();o.stop(a.currentTime+.08)}catch{}}
 
