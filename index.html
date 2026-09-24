@@ -48,15 +48,15 @@
 
 .repoTopGrid{display:grid;grid-template-columns:minmax(390px,.8fr) minmax(620px,1.6fr);gap:12px;align-items:stretch}
 .repoTopGrid .transferControls{margin:0}
-.healthCompact{padding:14px;overflow:hidden}
+.healthCompact{padding:12px;overflow:hidden;align-self:start}
 .healthCompactHead{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:10px}
 .healthCompactHead h3{margin:0;font-size:15px}.healthLegend{display:flex;gap:12px;flex-wrap:wrap;font-size:10px;font-weight:700;color:#52606d}
 .healthLegend i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px}
 .healthLegend .g{background:#20b15a}.healthLegend .a{background:#efb817}.healthLegend .r{background:#ef4444}
 .healthStores{display:grid;grid-template-columns:repeat(7,minmax(105px,1fr));gap:7px}
-.healthStore{border:1px solid #dce4ec;border-radius:9px;padding:9px;background:#fbfcfe;min-width:0}
+.healthStore{border:1px solid #dce4ec;border-radius:9px;padding:8px;background:#fbfcfe;min-width:0}
 .healthStoreTitle{font-size:11px;font-weight:900;margin-bottom:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.healthLine{display:grid;grid-template-columns:minmax(0,1fr) 22px 30px;gap:4px;align-items:center;margin:5px 0;font-size:9px}
+.healthLine{display:grid;grid-template-columns:minmax(0,1fr) 22px 30px;gap:4px;align-items:center;margin:3px 0;font-size:9px}
 .healthLine>span:first-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .healthRing{--p:0;--c:#20b15a;width:20px;height:20px;border-radius:50%;background:conic-gradient(var(--c) calc(var(--p)*1%),#e6ebf0 0);position:relative}
 .healthRing:after{content:"";position:absolute;inset:4px;background:#fbfcfe;border-radius:50%}
@@ -395,17 +395,30 @@ function renderTransferenciaTela(){
   <div class="transferTopActions"><button class="btn good" onclick="abrirGerarTransferencia()">Gerar transferência</button></div>
   <div class="tableWrap transferTableWrap"><table class="table transferTable"><thead><tr>${TF_COLS.map(c=>thFilter(c[0],c[1])).join('')}</tr></thead><tbody>${rows.length?displayRows.map(x=>`<tr><td><b>${esc(transferSku(x))}</b></td><td>${esc(x.colecaoCod||'-')}<div class="saleMeta">${esc(x.colecao||'')}</div></td><td>${esc(x.piramide||'-')}</td><td>${esc(x.origem)}</td><td><b>${x.origemEstoque}</b>${x.origemTransito?`<div class="sellin">${x.origemTransito} em trânsito</div>`:''}</td><td>${Number(x.origemMedia||0).toFixed(2)}</td><td class="coverageCell">${x.origemCobertura>=999?'Sem venda':x.origemCobertura.toFixed(1)+'x'}</td><td class="excess">${x.excedente}</td><td>${transferDate(x.origemUltima)}</td><td><b>${esc(x.destino)}</b></td><td><b>${x.destinoEstoque}</b></td><td>${x.destinoTransito?`<span class="sellin">${x.destinoTransito} em trânsito</span>`:'-'}</td><td>${Number(x.destinoMedia||0).toFixed(2)}</td><td>${transferDate(x.destinoUltima)}</td><td><span class="badge green">${x.qtdSugerida} peça(s)</span></td></tr>`).join(''):`<tr><td colspan="15" class="empty">Nenhuma oportunidade encontrada com estes filtros.</td></tr>`}</tbody></table></div>`;
 }
-function repoHealthData(rows){
-  const proj=Math.max(.01,Number(S.transferProjection||1)),m={};
-  (rows||[]).forEach(r=>{
-    const filial=String(r.destino||''),pir=String(r.piramide||'Sem pirâmide'),k=filial+'|'+pir;
-    if(!m[k])m[k]={filial,piramide:pir,estoque:0,alvo:0,transito:0};
-    m[k].estoque+=Number(r.estoque||0);m[k].alvo+=Number(r.alvo||0);m[k].transito+=Number(r.emTransito||0);
+function repoHealthData(){
+  const proj=Math.max(.01,Number(S.transferProjection||1)),selPir=S.transferPyramids,cf=S.repoColumnFilters||{},out={};
+  const colFilter=cf.colecao&&cf.colecao.size?cf.colecao:null,filFilter=cf.filial&&cf.filial.size?cf.filial:null;
+  const skuFilter=cf.sku&&cf.sku.size?cf.sku:null;
+  (S.transfer?.itens||[]).forEach(item=>{
+    const pir=item.piramide||'Sem pirâmide';
+    if(!selPir.has(pir))return;
+    const sku=transferSku(item),col=String(item.colecaoCod||'-');
+    if(colFilter&&!colFilter.has(col))return;
+    if(skuFilter&&!skuFilter.has(sku))return;
+    (item.lojas||[]).forEach(l=>{
+      if(filFilter&&!filFilter.has(String(l.nome)))return;
+      const media=mediaPeriodoLoja(l),alvo=Math.ceil(Math.max(0,media)*proj);
+      // Saúde representa cobertura da demanda projetada. Itens sem demanda não distorcem o denominador.
+      if(alvo<=0)return;
+      const k=l.nome+'|'+pir;
+      if(!out[k])out[k]={filial:l.nome,piramide:pir,estoque:0,alvo:0,transito:0};
+      out[k].estoque+=Math.max(0,Number(l.estoque||0));out[k].alvo+=alvo;out[k].transito+=Math.max(0,Number(l.emTransito||0));
+    });
   });
-  return Object.values(m).map(x=>({...x,pct:x.alvo>0?Math.max(0,Math.min(100,(x.estoque/x.alvo)*100)):100}));
+  return Object.values(out).map(x=>({...x,pct:x.alvo>0?Math.max(0,Math.min(100,(x.estoque/x.alvo)*100)):100}));
 }
 function renderPiramideSaude(rows){
-  const data=repoHealthData(rows),filiais=['ARTUR','FLORIANO','JOTA','MODA','PONTO','DIVINA','ITAUNA'];
+  const data=repoHealthData(),filiais=['ARTUR','FLORIANO','JOTA','MODA','PONTO','DIVINA','ITAUNA'];
   const pirs=[...new Set(data.map(x=>x.piramide))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
   return `<div class="card healthCompact"><div class="healthCompactHead"><div><h3>Saúde das pirâmides por filial</h3><div class="muted" style="font-size:10px">Estoque físico em relação à quantidade com projeção, usando os mesmos filtros da tabela.</div></div><div class="healthLegend"><span><i class="g"></i>≥ 80% Bom</span><span><i class="a"></i>50%–79% Atenção</span><span><i class="r"></i>&lt; 50% Crítico</span></div></div><div class="healthStores">${filiais.map(f=>{const fd=data.filter(x=>x.filial===f);return `<div class="healthStore"><div class="healthStoreTitle">${esc(f)}</div>${pirs.length?pirs.map(p=>{const x=fd.find(y=>y.piramide===p),pct=x?Math.round(x.pct):0,c=pct>=80?'#20b15a':pct>=50?'#efb817':'#ef4444';return `<div class="healthLine" title="${esc(p)} — ${pct}%"><span>${esc(p==='Não Classificado'?'Não Class.':p)}</span><i class="healthRing" style="--p:${pct};--c:${c}"></i><b class="healthPct">${pct}%</b></div>`}).join(''):`<div class="muted" style="font-size:9px">Sem dados</div>`}</div>`}).join('')}</div></div>`;
 }
