@@ -75,8 +75,9 @@
 .discountBar{display:grid!important;grid-template-columns:minmax(300px,1fr) 112px auto!important;align-items:end!important;gap:8px!important}
 .discountBar .field{margin:0!important}.discountBar .field .input,.discountBar .field select{height:38px!important;box-sizing:border-box!important}
 
-.scannerCandidate{position:absolute;z-index:30;left:12px;right:12px;bottom:18px;display:flex;justify-content:center;pointer-events:auto}
-.scannerCandidateCard{width:min(500px,calc(100vw - 40px));background:#fff;border:1px solid #d7e0e8;border-radius:18px;padding:18px;box-shadow:0 18px 50px #0005;color:#17324d}
+.scannerView{position:relative;min-height:320px}
+.scannerCandidate{position:absolute;z-index:40;inset:10px;display:flex;align-items:center;justify-content:center;background:#0009;border-radius:12px;padding:10px;pointer-events:auto}
+.scannerCandidateCard{width:min(500px,100%);max-height:100%;overflow:auto;background:#fff;border:1px solid #d7e0e8;border-radius:18px;padding:18px;box-shadow:0 18px 50px #0007;color:#17324d}
 .scannerCandidateSku{font-size:24px;font-weight:900}.scannerCandidateEan{font-size:15px;color:#718293;margin:5px 0 14px}
 .scannerCandidateGrid{display:grid;grid-template-columns:repeat(2,1fr);gap:9px;margin-bottom:14px}.scannerCandidateGrid>div{border:1px solid #dbe3ea;border-radius:12px;padding:11px;background:#fbfcfd}.scannerCandidateGrid span{display:block;font-size:12px;font-weight:800;color:#6b7d8c}.scannerCandidateGrid b{display:block;font-size:18px;margin-top:4px}
 #scanner{position:fixed}
@@ -225,7 +226,12 @@ function releasePromoScanner(){
 function renderScannerCandidate(){
   const x=S.pending;if(!x)return releasePromoScanner();
   let host=$('#scannerCandidate');
-  if(!host){host=document.createElement('div');host.id='scannerCandidate';host.className='scannerCandidate';$('#scanner').appendChild(host)}
+  if(!host){
+    host=document.createElement('div');
+    host.id='scannerCandidate';
+    host.className='scannerCandidate';
+    $('#scannerView').appendChild(host);
+  }
   host.innerHTML=`<div class="scannerCandidateCard"><div class="scannerCandidateSku">${esc(displayRef(x.ref))} · ${esc(x.cor)} · ${esc(x.tam)}</div><div class="scannerCandidateEan">EAN ${esc(x.ean)}</div><div class="scannerCandidateGrid"><div><span>Estoque</span><b>${Number(x.estoque||0)}</b></div><div><span>Preço atual</span><b>${money(x.preco)}</b></div><div><span>Pirâmide</span><b>${esc(x.piramide||'-')}</b></div></div><div class="rowActions"><button class="btn good" onclick="confirmScannerItem()">Confirmar item</button><button class="btn" onclick="cancelScannerItem()">Cancelar</button></div></div>`;
   $('#scannerInfo').textContent='Confirme ou cancele o item para liberar a próxima leitura.';
 }
@@ -234,7 +240,15 @@ async function confirmScannerItem(){
   await confirmItem(true);releasePromoScanner();
 }
 function cancelScannerItem(){S.pending=null;releasePromoScanner()}
-function processEAN(raw){const ean=(String(raw).match(/\d{13}/)||[])[0];if(!ean)return toast('EAN inválido. Informe 13 dígitos.');const c=S.catalogo[ean];if(!c)return toast('EAN não encontrado no catálogo.');const b=S.bi[biKey(c.ref,c.cor,c.tam)]||{};const ult=S.bi[latestKey(c.ref,c.cor,c.tam)]||{};const preco=S.precos[normalize(c.ref)];S.pending={ean,...c,estoque:Number(b.estoque||0),piramide:b.piramide||'',dataUltima:b.dataUltima||'',preco:Number(preco||0),ultimaVendaData:ult.data||'',ultimaVendaFilial:ult.filial||'',ultimaVendaEstoque:Number(ult.estoque||0)};renderCandidate();return true}
+function processEAN(raw){
+  const ean=(String(raw).match(/\d{13}/)||[])[0];
+  if(!ean){toast('EAN inválido. Informe 13 dígitos.');return false}
+  const c=S.catalogo[ean];
+  if(!c){toast('EAN não encontrado no catálogo.');return false}
+  const b=S.bi[biKey(c.ref,c.cor,c.tam)]||{},ult=S.bi[latestKey(c.ref,c.cor,c.tam)]||{},preco=S.precos[normalize(c.ref)];
+  S.pending={ean,...c,estoque:Number(b.estoque||0),piramide:b.piramide||'',dataUltima:b.dataUltima||'',preco:Number(preco||0),ultimaVendaData:ult.data||'',ultimaVendaFilial:ult.filial||'',ultimaVendaEstoque:Number(ult.estoque||0)};
+  return true;
+}
 function renderCandidate(){const x=S.pending;if(!x)return;$('#candidate').innerHTML=`<div class="productCard"><div class="productCode">${esc(displayRef(x.ref))} · ${esc(x.cor)} · ${esc(x.tam)}</div><div class="muted">EAN ${esc(x.ean)}</div><div class="facts"><div class="fact"><small>Estoque</small><b>${x.estoque}</b></div><div class="fact"><small>Preço atual</small><b>${money(x.preco)}</b></div><div class="fact"><small>Pirâmide</small><b>${esc(x.piramide||'-')}</b></div></div><div class="rowActions"><button class="btn good" onclick="confirmItem()">Confirmar item</button><button class="btn" onclick="S.pending=null;$('#candidate').innerHTML=''">Cancelar</button></div></div>`}
 async function confirmItem(fromScanner=false){
   if(!S.pending)return;
@@ -248,7 +262,10 @@ async function confirmItem(fromScanner=false){
   catch(e){S.data.itens=(S.data.itens||[]).filter(i=>i.id!==tempId);toast('Não foi possível gravar o item. Tente novamente.')}
   finally{S.pendingWrites=Math.max(0,S.pendingWrites-1);if(!fromScanner){if(S.page==='coleta')renderQuick();if(S.page==='lista')renderLista()}}
 }
-function manualEAN(){const i=$('#manualEAN');if(processEAN(i.value)){i.value='';i.focus()}}
+function manualEAN(){
+  const i=$('#manualEAN');
+  if(processEAN(i.value)){i.value='';i.focus();renderCandidate()}
+}
 function renderQuick(){const e=$('#quickList');if(!e)return;const a=S.data.itens||[];e.innerHTML=a.length?a.slice().reverse().slice(0,15).map(x=>`<div style="padding:9px 0;border-bottom:1px solid #e6ebef"><b>${esc(displayRef(x.ref))} · ${esc(x.cor)} · ${esc(x.tam)}</b><br><span class="muted">Estoque ${x.estoque} • ${money(x.preco)}</span></div>`).join(''):`<div class="empty">Nenhum item adicionado.</div>`}
 function renderLista(){const a=S.data.itens||[],edit=coletaAberta();$('#main').innerHTML=head('Minha lista',edit?'Revise antes de enviar ao Léo.':'Lista enviada para análise.')+(!edit?'<div class="readonlyNotice">Esta promoção está em análise. A lista está disponível somente para consulta.</div>':'')+itemsTable(a,edit)+(edit&&a.length?`<button class="btn primary full" style="margin-top:14px" onclick="enviarAnalise()">Enviar lista para análise</button>`:'');refreshListaSilenciosa()}
 async function refreshListaSilenciosa(){
@@ -663,7 +680,12 @@ async function openScanner(){
     },()=>{});
   }catch(e){toast('Não foi possível abrir a câmera.');closeScanner()}
 }
-async function closeScanner(){try{if(S.scanner){await S.scanner.stop().catch(()=>{});await S.scanner.clear().catch(()=>{});S.scanner=null}}catch{}$('#scanner').classList.add('hidden')}
+async function closeScanner(){
+  S.pending=null;S.scannerLocked=false;
+  const c=$('#scannerCandidate');if(c)c.remove();
+  try{if(S.scanner){await S.scanner.stop().catch(()=>{});await S.scanner.clear().catch(()=>{});S.scanner=null}}catch{}
+  $('#scanner').classList.add('hidden');
+}
 function beep(){try{const a=new (window.AudioContext||window.webkitAudioContext)(),o=a.createOscillator(),g=a.createGain();o.connect(g);g.connect(a.destination);o.frequency.value=900;g.gain.value=.12;o.start();o.stop(a.currentTime+.08)}catch{}}
 
 $('#modal').addEventListener('click',e=>{if(e.target===$('#modal')&&S.transferGenRows?.length)fecharGeradorTransferencia()});
